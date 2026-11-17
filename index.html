@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#101010">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<title>Lumenism</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22lmg%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23e9a6a1%22/%3E%3Cstop%20offset%3D%22.5%22%20stop-color%3D%22%23a9c9b3%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%239cb1df%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%22M32%2012.5%20L51.5%2046%20H12.5%20Z%22%20fill%3D%22url%28%23lmg%29%22%20fill-opacity%3D%22.2%22%20stroke%3D%22url%28%23lmg%29%22%20stroke-width%3D%223.6%22%20stroke-linejoin%3D%22round%22/%3E%3Cpath%20d%3D%22M32%2012.5%20L36.5%2046%22%20stroke%3D%22url%28%23lmg%29%22%20stroke-opacity%3D%22.45%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="offline/fonts/fonts.css" data-remote="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@400;700&amp;family=Black+Han+Sans&amp;family=Nanum+Pen+Script&amp;family=Gowun+Batang:wght@400;700&amp;family=Playfair+Display:wght@400;700&amp;family=Bebas+Neue&amp;display=swap" onerror="this.onerror=null;this.href=this.dataset.remote">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="lmg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9a6a1"/><stop offset=".5" stop-color="#a9c9b3"/><stop offset="1" stop-color="#9cb1df"/></linearGradient></defs><path d="M32 12.5 L51.5 46 H12.5 Z" fill="url(#lmg)" fill-opacity=".2" stroke="url(#lmg)" stroke-width="3.6" stroke-linejoin="round"/><path d="M32 12.5 L36.5 46" stroke="url(#lmg)" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round"/></svg><span class="wm">Lumen<em>ism</em></span></div>
+    <button class="tb" id="bOpen" title="사진 열기"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><span class="lbl">사진 열기</span></button>
+    <div class="sp"></div>
+    <button class="tb" id="bUndo" title="실행 취소 (Ctrl+Z)" disabled><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg></button>
+    <button class="tb" id="bRedo" title="다시 실행 (Ctrl+Shift+Z)" disabled><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 000 10h3"/></svg></button>
+    <button class="tb" id="bBefore" title="보정 전 보기 ( \ )" disabled><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 4l18 16" opacity=".5"/></svg><span class="lbl">보정 전</span></button>
+    <button class="tb" id="bSplit" title="분할 비교 (Y)" disabled><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 2v20"/></svg><span class="lbl">분할</span></button>
+    <button class="tb" id="bHQ" title="항상 원본 해상도로 미리보기 (사진이 크면 느려질 수 있어요)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7.5 15V9M10 9v6M10 12h0M13 9h2.5a1.5 1.5 0 011.5 1.5v3a1.5 1.5 0 01-1.5 1.5H13z"/></svg><span class="lbl">원본 해상도</span></button>
+    <button class="tb" id="bFit" title="화면 맞춤 / 100% (Z)" disabled><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><span class="zoomlbl" id="zoomLbl">—</span></button>
+    <button class="tb" id="bReset" title="모든 보정 초기화" disabled><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg><span class="lbl">초기화</span></button>
+    <button class="tb primary" id="bExport" disabled><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg><span class="lbl">내보내기</span></button>
+  </header>
+
+  <aside class="left disabled" id="left"></aside>
+
+  <main class="view" id="view" data-tool="edit">
+    <canvas id="gl"></canvas>
+    <canvas id="glHi"></canvas>
+    <svg id="ov"></svg>
+    <div class="badge" id="badge">보정 전</div>
+    <div class="vhint" id="vhint"></div>
+    <div class="empty" id="empty">
+      <svg class="hero" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="lmg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9a6a1"/><stop offset=".5" stop-color="#a9c9b3"/><stop offset="1" stop-color="#9cb1df"/></linearGradient></defs><path d="M32 12.5 L51.5 46 H12.5 Z" fill="url(#lmg2)" fill-opacity=".2" stroke="url(#lmg2)" stroke-width="3.6" stroke-linejoin="round"/><path d="M32 12.5 L36.5 46" stroke="url(#lmg2)" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <h2>사진을 가져오세요</h2>
+      <p>JPG · PNG · WebP와 RAW(CR2·CR3·NEF·ARW·RAF·DNG·ORF·RW2 등) 파일을 끌어다 놓거나 아래 버튼을 누르세요. 사진은 브라우저 안에서만 처리됩니다.</p>
+      <button class="tb primary" id="bOpen2">사진 선택</button>
+    </div>
+    <div class="busy" id="busy"><div class="spin"></div><span id="busyTxt">불러오는 중…</span></div>
+  </main>
+
+  <aside class="right disabled" id="right">
+    <div class="histwrap">
+      <div class="histbox"><canvas id="hist"></canvas>
+        <button class="clipbtn l" id="clipL" title="어두운 영역 클리핑 표시 (J)"></button><button class="clipbtn r" id="clipR" title="밝은 영역 클리핑 표시 (J)"></button></div>
+      <div class="meta"><span id="mName">—</span><span id="mDim"></span></div>
+      <div class="exif" id="exif"></div>
+    </div>
+    <div class="tools" id="tools">
+      <button data-tool="edit" class="on" title="편집 (E)"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>편집</button>
+      <button data-tool="crop" title="자르기 · 원근 (R)"><svg viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 002 2h14"/><path d="M2 6h14a2 2 0 012 2v14"/></svg>자르기</button>
+      <button data-tool="mask" title="마스크 (M)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 010 16z" fill="currentColor" stroke="none"/></svg>마스크</button>
+      <button data-tool="retouch" title="리터칭 (Q)"><svg viewBox="0 0 24 24"><path d="M14.5 4.5l5 5L9 20H4v-5z"/><path d="M12 7l5 5"/></svg>리터칭</button>
+      <button data-tool="portrait" title="인물 보정 (F)"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>인물</button>
+      <button data-tool="layers" title="레이어 (L)"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>레이어</button>
+    </div>
+    <div class="tpanel on" id="pEdit"></div>
+    <div class="tpanel" id="pCrop"></div>
+    <div class="tpanel" id="pMask"></div>
+    <div class="tpanel" id="pRetouch"></div>
+    <div class="tpanel" id="pPortrait"></div>
+    <div class="tpanel" id="pLayers"></div>
+  </aside>
+
+  <footer class="film" id="film">
+    <select id="filmFilter" title="필터">
+      <option value="all">전체</option><option value="pick">픽만</option><option value="noreject">거부 제외</option><option value="edited">편집한 사진</option><option value="unedited">편집 안 한 사진</option>
+      <option value="1">★ 1 이상</option><option value="2">★ 2 이상</option><option value="3">★ 3 이상</option><option value="4">★ 4 이상</option><option value="5">★ 5</option>
+    </select>
+    <div class="thumbs" id="thumbs"><button class="add" id="bAdd" title="사진 추가">+</button><span class="filmhint" id="filmHint">Ctrl/⌘·Shift+클릭으로 여러 장 선택</span></div>
+  </footer>
+</div>
+
+<input type="file" id="file" accept="image/*,.cr2,.cr3,.crw,.nef,.nrw,.arw,.srf,.sr2,.dng,.raf,.orf,.rw2,.rwl,.pef,.srw,.3fr,.erf,.kdc,.dcr,.mrw,.mos,.iiq,.x3f" multiple hidden>
+<input type="file" id="fileAny" hidden>
+<div class="drop" id="drop">여기에 놓아 사진 가져오기</div>
+<div class="toast" id="toast"></div>
+
+<div class="modal" id="expModal">
+  <div class="card wide">
+    <h3>내보내기</h3>
+    <div class="cols">
+      <div class="col" id="expForm"></div>
+      <div class="col"><div class="sub">미리보기</div><div id="expPrev" class="expprev"></div><div id="expResult"></div></div>
+    </div>
+    <div class="actions"><span class="note" id="expStatus" style="margin:0 auto 0 0"></span><button class="tb" id="eCancel">닫기</button><button class="tb" id="eShare" title="휴대폰의 공유 메뉴로 보내기 (갤러리에 저장 · 메신저 · 드라이브 등)">공유</button><button class="tb primary" id="eGo">내보내기</button></div>
+  </div>
+</div>
+<div class="modal" id="askModal">
+  <div class="card"><h3 id="askTitle"></h3><input id="askInput" class="txt" maxlength="60"><div class="actions"><button class="tb" id="askCancel">취소</button><button class="tb primary" id="askOk">확인</button></div></div>
+</div>
+
+<script src="js/geo.js"></script>
+<script src="js/shaders.js"></script>
+<script src="js/warp.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/io.js"></script>
+<script src="js/inpaint.js"></script>
+<script src="js/hdr.js"></script>
+<script src="js/core.js"></script>
+<script src="js/controls.js"></script>
+<script src="js/panels.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/auto.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/aifeat.js"></script>
+<script src="js/aifeat2.js"></script>
+<script src="js/sky.js"></script>
+<script src="js/aiui.js"></script>
+<script src="js/mobile.js"></script>
+<script src="js/pwa.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
