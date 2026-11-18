@@ -8,7 +8,7 @@ function setTool(t){if(!cur)return;const prev=tool;tool=t;UI.straighten=false;UI
   syncUI();updateModeUI();
   if(prev==='crop'||t==='crop'){doRender();fitView();}else requestRender();
   if(t==='edit')setTimeout(drawCurve,0);}
-function modeHint(){if(UI.pick)return{wb:'회색이나 흰색이어야 할 곳을 클릭하세요',pc:'바꾸고 싶은 색을 클릭하세요',range:'마스크를 적용할 색을 클릭하세요',aisubject:'선택할 피사체를 클릭하세요',focusDepth:'초점을 맞출 곳을 클릭하세요',focusSubject:'초점을 맞출 피사체를 클릭하세요'}[UI.pick];
+function modeHint(){if(UI.pick)return{addFace:'못 찾은 얼굴의 한가운데(코 근처)를 누르세요',wb:'회색이나 흰색이어야 할 곳을 클릭하세요',pc:'바꾸고 싶은 색을 클릭하세요',range:'마스크를 적용할 색을 클릭하세요',aisubject:'선택할 피사체를 클릭하세요',focusDepth:'초점을 맞출 곳을 클릭하세요',focusSubject:'초점을 맞출 피사체를 클릭하세요'}[UI.pick];
   if(UI.tat)return UI.tat==='hsl'?'바꾸고 싶은 색 위에서 위아래로 드래그하세요':'바꾸고 싶은 밝기 위에서 위아래로 드래그하세요';
   if(tool==='crop'){if(UI.straighten)return'수평선(또는 수직선)을 따라 드래그하세요';if(UI.guide)return`세로·가로 기준선을 따라 선을 그으세요 (${UI.guideLines.length}/4)`;return'';}
   if(tool==='mask'){if(UI.pendingCreate&&UI.pendingCreate!=='brush')return UI.pendingCreate==='linear'?'드래그해서 그라디언트 방향과 길이를 정하세요':'중심에서 바깥쪽으로 드래그하세요';
@@ -25,7 +25,7 @@ function startPick(k){UI.pick=UI.pick===k?null:k;UI.tat=null;updateModeUI();}
 
 /* ================= pickers / auto ================= */
 function doPick(mx,my){const k=UI.pick;UI.pick=null;
-  if(k==='aisubject'||k==='focusDepth'||k==='focusSubject'){updateModeUI();aiPick(k,mx,my);return;}
+  if(k==='aisubject'||k==='focusDepth'||k==='focusSubject'||k==='addFace'){updateModeUI();aiPick(k,mx,my);return;}
   if(k==='wb'){const uv=screenToSrc(mx,my);const c=R.srcPixel(uv[0],uv[1],2).map(v=>Math.max(.002,Math.pow(v,2.2)));const [cr,cg,cb]=c;
     const a11=.35*cr,a12=.08*cr+.25*cg,b1=cg-cr,a21=-.35*cb,a22=.08*cb+.25*cg,b2=cg-cb,det=a11*a22-a12*a21;
     if(Math.abs(det)>1e-9){const t=(b1*a22-a12*b2)/det,n=(a11*b2-b1*a21)/det;P().temp=clamp(Math.round(t*100),-100,100);P().tint=clamp(Math.round(n*100),-100,100);commit('흰색 균형 스포이드');}}

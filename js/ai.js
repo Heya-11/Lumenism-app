@@ -23,8 +23,8 @@ const offURL=p=>new URL('offline/'+p,location.href).href;
 OFF.ready=(async()=>{if(!/^https?:$/.test(location.protocol))return;try{const r=await fetch('offline/manifest.json',{cache:'no-store'});if(r.ok)OFF.ok=(await r.json()).ok||{};}catch(e){}
   const n=Object.keys(OFF.ok).length;if(n)console.info('[Lumenism] offline pack:',Object.keys(OFF.ok).join(', '));})();
 const MP_LOCAL={face:'face_landmarker.task',multiclass:'selfie_multiclass_256x256.tflite',selfie:'selfie_segmenter.tflite',subject:'magic_touch.tflite',classifier:'efficientnet_lite0.tflite',detector:'efficientdet_lite0.tflite'};
-function isLocal(key){return !!(OFF.ok['mp_'+key]||OFF.ok['hf_'+key]||(key==='lama'&&OFF.ok.lama));}
-function modelURL(key){const M=AI_MODELS[key];if(MP_LOCAL[key]&&OFF.ok['mp_'+key])return offURL('models/mediapipe/'+MP_LOCAL[key]);if(key==='lama'&&OFF.ok.lama)return offURL('models/lama/lama_fp32.onnx');return M.url;}
+function isLocal(key){return !!(OFF.ok['mp_'+key]||OFF.ok['hf_'+key]||(key==='lama'&&OFF.ok.lama)||(key==='yunet'&&OFF.ok.yunet));}
+function modelURL(key){const M=AI_MODELS[key];if(MP_LOCAL[key]&&OFF.ok['mp_'+key])return offURL('models/mediapipe/'+MP_LOCAL[key]);if(key==='lama'&&OFF.ok.lama)return offURL('models/lama/lama_fp32.onnx');if(key==='yunet'&&OFF.ok.yunet)return offURL('models/yunet/face_detection_yunet_2023mar.onnx');return M.url;}
 function aiAvailable(){if(window.claude){toast('AI 기능은 ZIP으로 받은 버전에서만 쓸 수 있어요 (웹 버전은 보안 정책상 모델을 내려받을 수 없어요)');return false;}
   if(!navigator.onLine&&!Object.keys(AI.inst).length&&!Object.keys(OFF.ok).length){toast('AI 모델을 처음 내려받으려면 인터넷 연결이 필요해요');}return true;}
 async function confirmBig(key){await OFF.ready;const m=AI_MODELS[key];if(!m.big||AI.inst[key]||isLocal(key))return true;let ok=false;
@@ -42,7 +42,7 @@ async function mpCreate(Cls,opts){const mp=await mpLib();
 async function getModel(key){if(AI.inst[key])return AI.inst[key];if(AI.loading[key])return AI.loading[key];const M=AI_MODELS[key];
   const job=(async()=>{busy(true,isLocal(key)?`${M.name} 모델 불러오는 중…`:`${M.name} 모델 준비 중… (처음 한 번 ${M.size} 내려받아요)`);await nextFrame();
     try{let inst;
-      if(key==='face')inst=await mpCreate('FaceLandmarker',{baseOptions:{modelAssetPath:modelURL(key)},runningMode:'IMAGE',numFaces:8,outputFaceBlendshapes:true,minFaceDetectionConfidence:.4,minFacePresenceConfidence:.4});
+      if(key==='face')inst=await mpCreate('FaceLandmarker',{baseOptions:{modelAssetPath:modelURL(key)},runningMode:'IMAGE',numFaces:20,outputFaceBlendshapes:true,minFaceDetectionConfidence:.4,minFacePresenceConfidence:.4});
       else if(key==='multiclass'||key==='selfie')inst=await mpCreate('ImageSegmenter',{baseOptions:{modelAssetPath:modelURL(key)},runningMode:'IMAGE',outputCategoryMask:false,outputConfidenceMasks:true});
       else if(key==='subject')inst=await mpCreate('InteractiveSegmenter',{baseOptions:{modelAssetPath:modelURL(key)},outputCategoryMask:false,outputConfidenceMasks:true});
       else if(key==='classifier')inst=await mpCreate('ImageClassifier',{baseOptions:{modelAssetPath:modelURL(key)},runningMode:'IMAGE',maxResults:8});
@@ -52,6 +52,7 @@ async function getModel(key){if(AI.inst[key])return AI.inst[key];if(AI.loading[k
         opt.dtype=key==='depth'||key==='clip'?'q8':'fp32';
         try{inst=await tf.pipeline(M.task,M.tf,opt);}
         catch(e){console.warn(e);delete opt.device;inst=await tf.pipeline(M.task,M.tf,opt);}}
+      else if(key==='yunet'){const ort=await ortLib();const buf=await fetchWithProgress(modelURL(key),()=>{});inst=await ort.InferenceSession.create(buf,{executionProviders:['wasm']});}
       else if(key==='lama'){const ort=await ortLib();const buf=await fetchWithProgress(modelURL(key),p=>busy(true,`${M.name} 내려받는 중… ${Math.round(p*100)}%`));
         busy(true,'AI 물체 지우기 모델 불러오는 중…');await nextFrame();inst=await ort.InferenceSession.create(buf,{executionProviders:['wasm']});}
       AI.inst[key]=inst;return inst;}
@@ -73,11 +74,7 @@ function storeMap(data,w,h,kind){const aid=uid('a');STORE.aimaps.set(aid,{w,h,da
 function mapSize(ph){const s=Math.min(1,1024/Math.max(ph.prev.width,ph.prev.height));return[Math.max(8,Math.round(ph.prev.width*s)),Math.max(8,Math.round(ph.prev.height*s))];}
 function closeRes(r){try{r&&r.close&&r.close();}catch(e){}}
 /* ---- inference wrappers (all return plain data in source-normalized coordinates) ---- */
-async function aiFaces(ph){if(ph._faces)return ph._faces;const m=await getModel('face');const c=aiCanvas(ph,1024);const r=m.detect(c);
-  const faces=(r.faceLandmarks||[]).map((lm,i)=>{const pts=lm.map(q=>[q.x,q.y]);const xs=pts.map(q=>q[0]),ys=pts.map(q=>q[1]);
-    const bs={};((r.faceBlendshapes||[])[i]?.categories||[]).forEach(cg=>bs[cg.categoryName]=cg.score);
-    const box=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];return{lm:pts,box,bs,w:Math.hypot(pts[454][0]-pts[234][0],(pts[454][1]-pts[234][1])*c.height/c.width)};});
-  ph._faces=faces;return faces;}
+/* aiFaces: see faces.js */
 async function aiSegment(ph,key){ph._seg=ph._seg||{};if(ph._seg[key])return ph._seg[key];const m=await getModel(key);const c=aiCanvas(ph,1024);const r=m.segment(c);
   const masks=(r.confidenceMasks||[]).map(mk=>({w:mk.width,h:mk.height,data:mk.getAsFloat32Array().slice()}));closeRes(r);ph._seg[key]=masks;return masks;}
 async function aiSubjectMask(ph,u,v){const m=await getModel('subject');const c=aiCanvas(ph,1024);const r=m.segment(c,{keypoint:{x:u,y:v}});

@@ -38,6 +38,7 @@ function buildPortrait(){const b=el('div','pad');$('pPortrait').appendChild(b);
     const k=po.aid+':'+n;if(k===fkey)return;fkey=k;fbox.innerHTML='';if(n<2)return;const st=controls.length;sub(fbox,'얼굴별 강도');
     for(let i=0;i<n;i++)slider(fbox,{path:'portrait.fw.'+i,label:`얼굴 ${i+1}`,hl:`얼굴 ${i+1} 강도`,min:0,max:150,def:100,fmt:v=>Math.round(v)+'%'});
     fbox.appendChild(el('div','hint','화면의 번호를 보고 사람마다 보정 강도를 정하세요. 0%면 그 얼굴은 보정하지 않아요.'));controls.slice(st).forEach(c=>c.sync());}});
+  const af=btn(b,'못 찾은 얼굴 추가 (얼굴을 눌러서)',()=>{if(!STORE.portrait.get(P().portrait.aid)&&!cur._faces){toast('먼저 ‘얼굴·피부 분석’을 해 주세요');return;}UI.pick='addFace';updateModeUI();},'btn full');af.style.marginTop='4px';
   const bl=el('button','btn full');bl.innerHTML='역광 인물 살리기 '+aiBadge();bl.style.marginTop='6px';bl.onclick=backlitFix;b.appendChild(bl);
   controls.push({sync(){const pd=STORE.portrait.get(P().portrait.aid);info.textContent=pd?`얼굴 ${pd.faces.length}개 인식됨. 아래 슬라이더로 보정하세요.`:'먼저 분석하면 피부·눈·치아·윤곽 보정을 쓸 수 있어요. (처음 한 번 약 20MB를 내려받아요)';}});
   sub(b,'피부');

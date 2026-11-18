@@ -37,6 +37,7 @@ const FOCUS_MODES=[[0,'끄기'],[1,'틸트 시프트'],[2,'원형'],[3,'인물 (
 /* ---- pick hooks (called from doPick) ---- */
 async function aiPick(k,mx,my){const uv=screenToSrc(mx,my);
   if(k==='aisubject'){await makeAiMask('subject',uv);return;}
+  if(k==='addFace'){await addFaceAt(uv);return;}
   if(k==='focusDepth'){const fx=P().fx;if(fx.tilt===4&&fx.aid){fx.fdepth=+sampleMap(fx.aid,uv[0],uv[1]).toFixed(3);syncUI();requestRender();commit('초점 거리 지정');}return;}
   if(k==='focusSubject'){const ph=cur;const r=await aiRun(async()=>{busy(true,'AI가 피사체를 찾는 중…');await nextFrame();const m=await aiSubjectMask(ph,uv[0],uv[1]);busy(false);return m;});
     if(!r||cur!==ph)return;const [w,h]=mapSize(ph);const aid=storeMap(maskFromFloat(r.data,r.w,r.h,w,h),w,h,'mask');ph._fmap=ph._fmap||{};ph._fmap[5]=aid;
@@ -50,30 +51,33 @@ function buildPortraitData(faces,multi,W,H,aspectFix){const layer=()=>{const c=d
   else faces.forEach(f=>fillPoly(sx,LM.oval.map(k=>f.lm[k]),W,H));
   sx.globalCompositeOperation='destination-out';
   faces.forEach(f=>{const fwp=f.w*W;sx.lineWidth=fwp*.02;ex.lineWidth=fwp*.008;
-    [LM.leye,LM.reye,LM.lbrow,LM.rbrow,LM.lipsOuter].forEach(g=>{const pts=g.map(k=>f.lm[k]);fillPoly(sx,pts,W,H);sx.stroke();});
+    [LM.leye,LM.reye,LM.lbrow,LM.rbrow,LM.lipsOuter].forEach(g=>{const pts=g.map(k=>f.lm[k]);fillPoly(sx,pts,W,H);sx.stroke();});if(f.profile)return;
     [LM.leye,LM.reye].forEach(g=>{fillPoly(ex,g.map(k=>f.lm[k]),W,H);});
     if(f.lm.length>=478)[LM.liris,LM.riris].forEach(g=>{const c=f.lm[g[0]],r=Math.hypot((f.lm[g[1]][0]-c[0])*W,(f.lm[g[1]][1]-c[1])*H)*1.05;ix.beginPath();ix.arc(c[0]*W,c[1]*H,r,0,6.2832);ix.fill();});
     fillPoly(tx,LM.lipsInner.map(k=>f.lm[k]),W,H);});
   const get=x=>x.getImageData(0,0,W,H).data;const S=get(sx),E=get(ex),I=get(ix),T=get(tx);const rgba=new Uint8Array(W*H*4);
   for(let i=0;i<W*H;i++){rgba[i*4]=S[i*4+3];rgba[i*4+1]=E[i*4+3];rgba[i*4+2]=T[i*4+3];rgba[i*4+3]=I[i*4+3];}
+  const fr=faces.filter(f=>!f.profile);
   /* makeup layers: R lips, G blush, B brows, A under-eye */
   const soft=(draw,blur)=>{const [c,x]=layer();x.filter=`blur(${Math.max(.5,blur).toFixed(1)}px)`;draw(x);return get(x);};
   const pt=(f,k)=>[f.lm[k][0]*W,f.lm[k][1]*H];const ctr=(f,g)=>{const v=g.map(k=>pt(f,k));return[v.reduce((s,q)=>s+q[0],0)/v.length,v.reduce((s,q)=>s+q[1],0)/v.length];};
-  const Lp=soft(x=>faces.forEach(f=>{fillPoly(x,LM.lipsOuter.map(k=>f.lm[k]),W,H);x.globalCompositeOperation='destination-out';fillPoly(x,LM.lipsInner.map(k=>f.lm[k]),W,H);x.globalCompositeOperation='source-over';}),Math.max(...faces.map(f=>f.w*W*.006)));
-  const Bl=soft(x=>faces.forEach(f=>{const fwp=f.w*W,mid=ctr(f,LM.lipsOuter);[[LM.leye,61,-1],[LM.reye,291,1]].forEach(([E,mc,sg])=>{const e=ctr(f,E),m=pt(f,mc);
+  const Lp=soft(x=>fr.forEach(f=>{fillPoly(x,LM.lipsOuter.map(k=>f.lm[k]),W,H);x.globalCompositeOperation='destination-out';fillPoly(x,LM.lipsInner.map(k=>f.lm[k]),W,H);x.globalCompositeOperation='source-over';}),Math.max(...fr.map(f=>f.w*W*.006)));
+  const Bl=soft(x=>fr.forEach(f=>{const fwp=f.w*W,mid=ctr(f,LM.lipsOuter);[[LM.leye,61,-1],[LM.reye,291,1]].forEach(([E,mc,sg])=>{const e=ctr(f,E),m=pt(f,mc);
       const ox=Math.sign(e[0]-mid[0])||sg;const c=[e[0]*.45+m[0]*.55+ox*fwp*.07,e[1]*.45+m[1]*.55];const r=fwp*.14;
       const g=x.createRadialGradient(c[0],c[1],0,c[0],c[1],r);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.55,'rgba(255,255,255,.55)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.beginPath();x.ellipse(c[0],c[1],r,r*.8,0,0,6.2832);x.fill();});}),1);
-  const Bw=soft(x=>faces.forEach(f=>[LM.lbrow,LM.rbrow].forEach(g=>fillPoly(x,g.map(k=>f.lm[k]),W,H))),Math.max(...faces.map(f=>f.w*W*.008)));
-  const Ue=soft(x=>faces.forEach(f=>{[LM.leye,LM.reye].forEach(E=>{const v=E.map(k=>pt(f,k));const xs=v.map(q=>q[0]),ys=v.map(q=>q[1]);const ew=Math.max(...xs)-Math.min(...xs),eh=Math.max(4,Math.max(...ys)-Math.min(...ys));
+  const Bw=soft(x=>fr.forEach(f=>[LM.lbrow,LM.rbrow].forEach(g=>fillPoly(x,g.map(k=>f.lm[k]),W,H))),Math.max(...fr.map(f=>f.w*W*.008)));
+  const Ue=soft(x=>fr.forEach(f=>{[LM.leye,LM.reye].forEach(E=>{const v=E.map(k=>pt(f,k));const xs=v.map(q=>q[0]),ys=v.map(q=>q[1]);const ew=Math.max(...xs)-Math.min(...xs),eh=Math.max(4,Math.max(...ys)-Math.min(...ys));
       const c=ctr(f,E);x.fillStyle='#fff';x.beginPath();x.ellipse(c[0],Math.max(...ys)+eh*.9,ew*.62,eh*1.15,0,0,6.2832);x.fill();});
-    x.globalCompositeOperation='destination-out';[LM.leye,LM.reye].forEach(E=>{x.lineWidth=f.w*W*.02;fillPoly(x,E.map(k=>f.lm[k]),W,H);x.stroke();});x.globalCompositeOperation='source-over';}),Math.max(...faces.map(f=>f.w*W*.02)));
+    x.globalCompositeOperation='destination-out';[LM.leye,LM.reye].forEach(E=>{x.lineWidth=f.w*W*.02;fillPoly(x,E.map(k=>f.lm[k]),W,H);x.stroke();});x.globalCompositeOperation='source-over';}),Math.max(...fr.map(f=>f.w*W*.02)));
   const rgba2=new Uint8Array(W*H*4);for(let i=0;i<W*H;i++){rgba2[i*4]=Lp[i*4+3];rgba2[i*4+1]=Bl[i*4+3];rgba2[i*4+2]=Bw[i*4+3];rgba2[i*4+3]=Ue[i*4+3];}
   const faceW=faces.length?Math.max(...faces.map(f=>f.w))*aspectFix:.2;return{w:W,h:H,rgba,rgba2,faces,faceW};}
-async function analyzePortrait(){const ph=cur;const r=await aiRun(async()=>{busy(true,'AI가 얼굴을 찾는 중…');await nextFrame();const faces=await aiFaces(ph);
-    if(!faces.length){busy(false);throw new Error('얼굴을 찾지 못했어요');}let multi=null;try{busy(true,'AI가 피부 영역을 찾는 중…');multi=await aiSegment(ph,'multiclass');}catch(e){console.warn(e);}
+async function analyzePortrait(opt={}){const ph=cur;const r=await aiRun(async()=>{busy(true,'AI가 얼굴을 찾는 중…');await nextFrame();const faces=await aiFaces(ph);
+    let multi=null;try{busy(true,'AI가 피부 영역을 찾는 중…');multi=await aiSegment(ph,'multiclass');}catch(e){console.warn(e);}
+    if(!faces.length){let cov=0;if(multi&&multi[3]){const d=multi[3].data;for(let i=0;i<d.length;i+=3)cov+=d[i]>.5;cov/=d.length/3;}if(cov<.002){busy(false);throw new Error('얼굴을 찾지 못했어요. ‘못 찾은 얼굴 추가’로 얼굴을 직접 눌러 보세요');}}
     busy(false);return{faces,multi};});if(!r||cur!==ph)return;
   const [w,h]=mapSize(ph);const c=aiCanvas(ph,1024);const d=buildPortraitData(r.faces,r.multi,w,h,c.width/c.height);const aid=uid('p');STORE.portrait.set(aid,d);
-  P().portrait.aid=aid;P().portrait.fw=r.faces.map(()=>100);syncUI();requestRender();commit(`얼굴 분석 (${r.faces.length}명)`);toast(`얼굴 ${r.faces.length}개를 찾았어요`);}
+  P().portrait.aid=aid;P().portrait.fw=r.faces.map(()=>100);syncUI();requestRender();commit(`얼굴 분석 (${r.faces.length}명)`);if(opt.quiet)return;
+  const np=r.faces.filter(f=>f.profile).length;toast(!r.faces.length?'얼굴 윤곽은 못 찾았지만 피부 보정은 쓸 수 있어요. 놓친 얼굴은 ‘못 찾은 얼굴 추가’로 눌러 주세요':`얼굴 ${r.faces.length}개를 찾았어요`+(np?` · 옆모습 ${np}개는 피부 보정만 적용돼요`:''));}
 /* exclusion zones for blemish search: nostrils/nose base, eyes, brows, lips (dilated), drawn from face landmarks */
 function blemishExclusion(pd,fw,fh){const c=document.createElement('canvas');c.width=fw;c.height=fh;const x=c.getContext('2d',{willReadFrequently:true});x.fillStyle='#fff';x.strokeStyle='#fff';x.lineJoin='round';x.lineCap='round';
   const P=(f,k)=>f.lm[k]?[f.lm[k][0]*fw,f.lm[k][1]*fh]:null;const d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);

@@ -4,7 +4,7 @@ const PACK_CACHE='lumen-models-v1';
 const _JSD='https://cdn.jsdelivr.net/npm/',_MPM='https://storage.googleapis.com/mediapipe-models/',_HF=(r,f)=>`https://huggingface.co/${r}/resolve/main/${f}`;
 const PACK=[
   ['AI 엔진 (MediaPipe)',9,['vision_bundle.mjs','wasm/vision_wasm_internal.js','wasm/vision_wasm_internal.wasm','wasm/vision_wasm_nosimd_internal.js','wasm/vision_wasm_nosimd_internal.wasm'].map(f=>_JSD+'@mediapipe/tasks-vision@0.10.14/'+f)],
-  ['얼굴 인식',4,[_MPM+'face_landmarker/face_landmarker/float16/1/face_landmarker.task']],
+  ['얼굴 인식',4,[_MPM+'face_landmarker/face_landmarker/float16/1/face_landmarker.task','https://huggingface.co/opencv/face_detection_yunet/resolve/main/face_detection_yunet_2023mar.onnx']],
   ['인물 분할',16,[_MPM+'image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite',_MPM+'image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite']],
   ['피사체 · 장면 · 물체 인식',18,[_MPM+'interactive_segmenter/magic_touch/float32/1/magic_touch.tflite',_MPM+'image_classifier/efficientnet_lite0/float32/1/efficientnet_lite0.tflite',_MPM+'object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite']],
   ['AI 엔진 (Transformers.js)',22,['transformers.min.js','ort-wasm-simd-threaded.jsep.wasm'].map(f=>_JSD+'@huggingface/transformers@3.1.2/dist/'+f)],
