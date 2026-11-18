@@ -22,6 +22,7 @@ function setPackState(s){try{localStorage.setItem('lumen.pack',JSON.stringify(s)
 async function initPWA(){
   $('eShare').style.display=navigator.canShare&&MB.touch?'':'none';
   if(!pwaOK())return;
+  if(/[?&]shared=/.test(location.search))takeShared();
   try{const reg=await navigator.serviceWorker.register('sw.js');PW.sw=true;
     reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)showUpdate(w);});});
     if(reg.waiting&&navigator.serviceWorker.controller)showUpdate(reg.waiting);}catch(e){console.warn('SW',e);return;}
@@ -74,3 +75,10 @@ async function cacheFonts(cache){const link=document.querySelector('link[data-re
   let i=0;await Promise.all(Array.from({length:6},async()=>{while(i<urls.length){const f=urls[i++];if(await cache.match(f))continue;try{const x=await fetch(f,{mode:'cors',credentials:'omit'});if(x.ok)await cache.put(f,x);}catch(e){}}}));}
 /* manual trigger (left panel) */
 function packAll(){const s=packState();delete s.done;delete s.later;setPackState(s);const p=$('pack');if(p)p.classList.remove('min');runPack();}
+
+/* photos shared from the gallery app (Web Share Target) */
+async function takeShared(){try{history.replaceState(null,'',location.pathname);}catch(e){}
+  let c;try{c=await caches.open('lumen-share');}catch(e){return;}const keys=await c.keys();if(!keys.length){toast('공유받은 사진을 찾지 못했어요');return;}
+  const files=[];for(const k of keys.sort((a,b)=>a.url.localeCompare(b.url,undefined,{numeric:true}))){const r=await c.match(k);if(!r)continue;const b=await r.blob();
+    files.push(new File([b],decodeURIComponent(r.headers.get('X-Name')||'shared.jpg'),{type:b.type}));}
+  for(const k of keys)await c.delete(k);if(files.length)addFiles(files);}
