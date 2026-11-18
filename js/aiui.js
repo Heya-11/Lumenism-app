@@ -59,6 +59,14 @@ function buildPortrait(){const b=el('div','pad');$('pPortrait').appendChild(b);
   slider(b,{path:'portrait.blush',label:'볼 터치',min:0,max:100,fmt:v=>Math.round(v)});
   chipsCtl(b,'portrait.blushH',[[6,'코랄'],[350,'로즈'],[20,'피치'],[330,'핑크']],{hl:'볼 터치 색상'});
   slider(b,{path:'portrait.brow',label:'눈썹 진하게',min:-100,max:100});
+  sub(b,'적용 범위 다듬기');
+  b.appendChild(el('div','hint','AI가 잡은 범위가 어색하면 직접 칠해서 고쳐요. 고를 부위를 누르면 그 범위가 분홍색으로 보여요.'));
+  chipsCtl(b,'ui:pe.c',Object.entries(PE_CH).map(([k,v])=>[k,v[0]]),{noCommit:true,always:true,onSet:()=>{if(!UI.pe.on)peToggle(true);else{requestRender();updateModeUI();}}});
+  chipsCtl(b,'ui:pe.m',[['add','더하기'],['erase','지우기']],{noCommit:true,always:true,onSet:()=>{updateModeUI();drawOverlay();}});
+  slider(b,{path:'ui:pe.size',label:'브러시 크기',min:4,max:200,def:30,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v),onSet:drawOverlay});
+  const pr=el('div','row2');pr.style.marginTop='6px';b.appendChild(pr);
+  const pt=btn(pr,'다듬기 시작',()=>peToggle(),'btn',{always:true});btn(pr,'이 부위 되돌리기',peReset,'btn');
+  controls.push({sync(){pt.textContent=UI.pe.on?'다듬기 끝내기':'다듬기 시작';pt.classList.toggle('primary',UI.pe.on);}});
   sub(b,'얼굴 윤곽');
   slider(b,{path:'portrait.slim',label:'턱선 갸름',min:-100,max:100});
   slider(b,{path:'portrait.width',label:'얼굴 폭',hl:'얼굴 폭 줄이기',min:-100,max:100});
@@ -67,11 +75,12 @@ function buildPortrait(){const b=el('div','pad');$('pPortrait').appendChild(b);
   slider(b,{path:'portrait.smile',label:'입꼬리',min:-100,max:100});
   btn(b,'인물 보정 초기화',()=>{const a=P().portrait.aid;P().portrait=Object.assign(defaults().portrait,{aid:a});syncUI();requestRender();commit('인물 보정 초기화');},'btn sm').style.marginTop='6px';
   sub(b,'픽셀 유동화 (수동)');
-  chipsCtl(b,'ui:liq.mode',[['off','끄기'],['push','밀기'],['bloat','부풀리기'],['pucker','오므리기'],['restore','복원']],{noCommit:true,always:true,onSet:updateModeUI});
+  chipsCtl(b,'ui:liq.mode',[['off','끄기'],['push','밀기'],['bloat','부풀리기'],['pucker','오므리기'],['restore','복원']],{noCommit:true,always:true,onSet:v=>{if(v!=='off'&&UI.pe.on){UI.pe.on=false;requestRender();syncUI();}updateModeUI();}});
   slider(b,{path:'ui:liq.size',label:'크기',min:5,max:500,def:80,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v),onSet:drawOverlay});
-  slider(b,{path:'ui:liq.str',label:'강도',min:5,max:100,def:50,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v)});
+  slider(b,{path:'ui:liq.str',label:'강도',min:5,max:100,def:35,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v)});
+  const sr=el('div','msens');sr.innerHTML='<span>조절 감도 (유동화 · 터치 슬라이더)</span>';b.appendChild(sr);sensChips(sr);
   btn(b,'유동화 모두 지우기',()=>{P().liquify=[];requestRender();commit('유동화 지우기');},'btn sm').style.marginTop='6px';
-  b.appendChild(el('div','hint','유동화는 AI 없이 쓸 수 있어요. 브러시로 밀어서 턱선이나 머리 모양을 직접 다듬으세요. <kbd>[</kbd> <kbd>]</kbd> 크기'));}
+  b.appendChild(el('div','hint',(typeof MB!=='undefined'&&MB.touch?'유동화는 AI 없이 쓸 수 있어요. 확대해서 작게, 여러 번 나눠 밀면 자연스러워요. 두 손가락 탭 = 실행 취소, 세 손가락 탭 = 다시 실행':'유동화는 AI 없이 쓸 수 있어요. 브러시로 밀어서 턱선이나 머리 모양을 직접 다듬으세요. <kbd>[</kbd> <kbd>]</kbd> 크기')));}
 /* ---- 편집 › 하늘 교체 · 조명 ---- */
 function buildSkyLight(b){
   const h=el('div','sub');h.innerHTML='하늘 교체 '+aiBadge();b.appendChild(h);

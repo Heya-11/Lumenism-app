@@ -67,7 +67,7 @@ async function batchAI(){if(!cur)return;const sel=photos.filter(p=>p.selected&&p
   applyFilter();toast(`${ok}장에 적용했어요`+(miss.length?` · 얼굴을 못 찾은 ${miss.length}장은 인물 보정을 건너뛰었어요`:''));}
 
 /* ---- edited / unedited ---- */
-function isEdited(ph){const q=clone(ph.params);q.portrait.aid=null;q.portrait.fw=[];q.fx.aid=null;if(q.sky)q.sky.aid=null;if(q.light)q.light.aid=null;return JSON.stringify(q)!==DEF_JSON;}
+function isEdited(ph){const q=clone(ph.params);q.portrait.aid=null;q.portrait.fw=[];if(!(q.portrait.edits||[]).length)q.portrait.edits=[];q.fx.aid=null;if(q.sky)q.sky.aid=null;if(q.light)q.light.aid=null;return JSON.stringify(q)!==DEF_JSON;}
 function markEdited(ph){if(ph.el)ph.el.classList.toggle('edited',isEdited(ph));}
 
 /* ---- similar-photo stacks ---- */

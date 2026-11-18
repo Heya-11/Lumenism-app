@@ -111,15 +111,41 @@ function autoBlemish(){const pd=STORE.portrait.get(P().portrait.aid);if(!pd){toa
   pick.forEach(([,x,y])=>{const r=+(rb*1.1/fh).toFixed(5),d=[rnd4(x/fw),rnd4(y/fh)];P().retouch.push({id:uid('r'),type:'heal',d,s:findSource(d,r),r,f:60,op:100});});
   syncUI();requestRender();commit(`잡티 자동 제거 (${pick.length}곳)`);toast(`잡티 ${pick.length}곳을 지웠어요. 리터칭 탭에서 하나씩 조정할 수 있어요`);}
 /* ---- liquify (portrait tool pointer) ---- */
-function portDown(mx,my){const m=UI.liq.mode;if(m==='off')return null;const uv=screenToSrc(mx,my);
-  const st={m,r:+(UI.liq.size/(view.s*R.last.h)).toFixed(5),s:UI.liq.str/100,p:[uv.map(rnd4)]};P().liquify.push(st);requestRender();
-  return{move(x,y){hoverPos=[x,y];const u=screenToSrc(x,y),lp=st.p[st.p.length-1];if(Math.hypot((u[0]-lp[0])*R.last.w,(u[1]-lp[1])*R.last.h)*view.s<2)return;st.p.push(u.map(rnd4));requestRender();},
-    up(){commit('유동화: '+{push:'밀기',bloat:'부풀리기',pucker:'오므리기',restore:'복원'}[m]);}};}
+function portDown(mx,my){if(UI.pe.on)return peDown(mx,my);const m=UI.liq.mode;if(m==='off')return null;const uv=screenToSrc(mx,my);
+  const st={m,r:+(UI.liq.size/(view.s*R.last.h)).toFixed(5),s:+(UI.liq.str/100*UI.sens).toFixed(3),p:[uv.map(rnd4)]};P().liquify.push(st);requestRender();
+  let sm=uv.slice(),last=uv.slice();
+  /* bloat/pucker/restore: grow at a steady rate while the finger rests (not per jittery move event) */
+  const timer=m==='push'?null:setInterval(()=>{st.p.push(sm.map(rnd4));requestRender();},70);
+  return{move(x,y){hoverPos=[x,y];const u=screenToSrc(x,y);
+      sm=[sm[0]+(u[0]-sm[0])*.45,sm[1]+(u[1]-sm[1])*.45];/* smooth finger jitter */
+      if(Math.hypot((sm[0]-last[0])*R.last.w,(sm[1]-last[1])*R.last.h)*view.s<3)return;last=sm.slice();if(m==='push'){st.p.push(sm.map(rnd4));requestRender();}},
+    up(){if(timer)clearInterval(timer);commit('유동화: '+{push:'밀기',bloat:'부풀리기',pucker:'오므리기',restore:'복원'}[m]);}};}
+/* ---- range editing for AI regions (skin / eyes / teeth / lips / blush / brows / under-eye) ---- */
+const PE_CH={skin:['피부',0,1],eyes:['눈 흰자',1,2],teeth:['치아',2,3],lip:['입술',4,4],blush:['볼 터치',5,5],brow:['눈썹',6,6],dark:['눈 밑',7,7]};
+function peDown(mx,my){const pd=STORE.portrait.get(P().portrait.aid);if(!pd){toast('먼저 ‘얼굴·피부 분석’을 해 주세요');return null;}
+  const uv=screenToSrc(mx,my);const st={c:UI.pe.c,m:UI.pe.m,r:+(UI.pe.size/(view.s*R.last.h)).toFixed(5),p:[uv.map(rnd4)]};
+  const E=P().portrait.edits||(P().portrait.edits=[]);E.push(st);requestRender();
+  return{move(x,y){hoverPos=[x,y];const u=screenToSrc(x,y),lp=st.p[st.p.length-1];if(Math.hypot((u[0]-lp[0])*R.last.w,(u[1]-lp[1])*R.last.h)*view.s<3)return;st.p.push(u.map(rnd4));requestRender();},
+    up(){commit(`범위 다듬기: ${PE_CH[st.c][0]} ${st.m==='add'?'더하기':'지우기'}`);}};}
+function portArrays(pd,edits){edits=edits||[];const key=JSON.stringify(edits.map(s=>[s.c,s.m,s.r,s.p.length,s.p[s.p.length-1]]));
+  if(pd._ed&&pd._ed.key===key)return pd._ed;if(!edits.length){pd._ed={key,rgba:pd.rgba,rgba2:pd.rgba2,v:(pd._ed?pd._ed.v:0)+1};return pd._ed;}
+  const A=[new Uint8Array(pd.rgba),pd.rgba2?new Uint8Array(pd.rgba2):new Uint8Array(pd.w*pd.h*4)],W=pd.w,H=pd.h;
+  for(const st of edits){const ch=PE_CH[st.c];if(!ch)continue;const arr=A[ch[1]>>2],o=ch[1]&3,r=Math.max(1.5,st.r*H),add=st.m==='add';
+    const dab=(cx,cy)=>{const x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(W-1,Math.ceil(cx+r)),y0=Math.max(0,Math.floor(cy-r)),y1=Math.min(H-1,Math.ceil(cy+r));
+      for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const d=Math.hypot(x-cx,y-cy)/r;if(d>=1)continue;const w=d<.5?1:1-(d-.5)/.5*(d-.5)/.5*(3-2*(d-.5)/.5)+0;const k=(y*W+x)*4+o;
+        const ww=Math.max(0,Math.min(1,d<.5?1:1-((d-.5)/.5)**2));arr[k]=add?Math.max(arr[k],Math.round(255*ww)):Math.round(arr[k]*(1-ww));}};
+    const pts=st.p.map(([u,v])=>[u*W,v*H]);dab(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],d=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(d/(r*.3)));for(let k=1;k<=n;k++)dab(a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n);}}
+  pd._ed={key,rgba:A[0],rgba2:A[1],v:(pd._ed?pd._ed.v:0)+1};return pd._ed;}
+function peToggle(on){UI.pe.on=on??!UI.pe.on;if(UI.pe.on)UI.liq.mode='off';syncUI();updateModeUI();requestRender();drawOverlay();
+  if(UI.pe.on)toast('색으로 표시된 곳이 적용 범위예요. 손가락으로 칠해서 더하거나 지우세요');}
+function peReset(){const c=UI.pe.c,E=P().portrait.edits||[];const n=E.length;P().portrait.edits=E.filter(s=>s.c!==c);if(P().portrait.edits.length!==n){requestRender();commit(`범위 다듬기 초기화: ${PE_CH[c][0]}`);}}
 function portraitOverlay(){let s='';const pd=STORE.portrait.get(P().portrait.aid);
   if(pd)pd.faces.forEach((f,i)=>{const a=srcToScreen([f.box[0],f.box[1]]),b=srcToScreen([f.box[2],f.box[3]]);const x0=Math.min(a[0],b[0]),y0=Math.min(a[1],b[1]);const w=((P().portrait.fw||[])[i]??100);
     s+=`<rect x="${x0}" y="${y0}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="none" stroke="rgba(255,255,255,${w>0?.4:.15})" stroke-dasharray="4 4"/>`;
     if(pd.faces.length>1)s+=`<rect x="${x0}" y="${y0-20}" width="${w===100?22:56}" height="18" rx="4" fill="rgba(0,0,0,.6)"/><text x="${x0+6}" y="${y0-6}" fill="#fff" font-size="12" font-weight="600">${i+1}${w===100?'':' · '+w+'%'}</text>`;});
-  if(UI.liq.mode!=='off'&&hoverPos&&!UI.space)s+=`<circle cx="${hoverPos[0]}" cy="${hoverPos[1]}" r="${UI.liq.size}" fill="none" stroke="#fff" stroke-width="1.2"/><circle cx="${hoverPos[0]}" cy="${hoverPos[1]}" r="2" fill="#fff"/>`;
+  if(UI.pe.on&&hoverPos&&!UI.space)s+=`<circle cx="${hoverPos[0]}" cy="${hoverPos[1]}" r="${UI.pe.size}" fill="none" stroke="${UI.pe.m==='add'?'#fff':'#ff8a8a'}" stroke-width="1.2" stroke-dasharray="${UI.pe.m==='add'?'':'4 3'}"/>`;
+  else if(UI.liq.mode!=='off'&&hoverPos&&!UI.space)s+=`<circle cx="${hoverPos[0]}" cy="${hoverPos[1]}" r="${UI.liq.size}" fill="none" stroke="#fff" stroke-width="1.2"/><circle cx="${hoverPos[0]}" cy="${hoverPos[1]}" r="2" fill="#fff"/>`;
   return s;}
 /* ---- AI composition (crop suggestions) ---- */
 async function aiCropSuggest(){const ph=cur;const r=await aiRun(async()=>{busy(true,'AI가 주요 피사체를 찾는 중…');await nextFrame();let boxes=[],face=false;

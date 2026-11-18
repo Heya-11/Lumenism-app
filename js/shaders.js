@@ -79,7 +79,7 @@ uniform vec4 uPCt[4],uPCa[4];uniform float uPCRest;uniform int uPCn;
 uniform int uLut3On;uniform float uLut3Amt,uLut3Size;
 uniform sampler2D uDisp,uPort;uniform int uDispOn,uPortOn;uniform vec4 uPA,uPB;
 uniform sampler2D uPort2,uSky,uSkyM,uRel,uOvF;uniform vec4 uMK;uniform vec2 uMH;uniform vec4 uFC[8];uniform float uFW[8];uniform int uFN;
-uniform int uSkyOn,uRelOn,uAIOv,uOvFT;uniform vec4 uSkyT,uSkyP;uniform vec3 uSkyTint;uniform float uSkyL;uniform vec4 uRelP;uniform vec3 uRelL,uRelC;uniform vec2 uRelTx,uOvFP;
+uniform int uSkyOn,uRelOn,uAIOv,uOvFT,uOvSel;uniform vec4 uSkyT,uSkyP;uniform vec3 uSkyTint;uniform float uSkyL;uniform vec4 uRelP;uniform vec3 uRelL,uRelC;uniform vec2 uRelTx,uOvFP;
 `+COMMON+`
 const float CEN[8]=float[8](0.,30./360.,60./360.,120./360.,180./360.,240./360.,270./360.,300./360.);
 vec3 bandAdj(float h){for(int i=0;i<8;i++){int j=(i+1)%8;float c0=CEN[i];float c1=j==0?1.:CEN[j];
@@ -94,6 +94,8 @@ vec3 samp(vec2 uv){if(uCA==0.)return texture(uTex,uv).rgb;vec2 d=uv-.5;float s=u
   return vec3(texture(uTex,.5+d*(1.+s)).r,texture(uTex,uv).g,texture(uTex,.5+d*(1.-s)).b);}
 float faceWt(vec2 tl){if(uFN==0)return 1.;float bd=1e9,w=1.;for(int i=0;i<8;i++){if(i>=uFN)break;vec2 d=(tl-uFC[i].xy)*vec2(uSrcAspect,1.);float dd=dot(d,d);if(dd<bd){bd=dd;w=uFW[i];}}return w;}
 vec3 aiOverlay(vec3 c,vec2 tl){vec4 acc=vec4(0.);
+ if(uOvSel>0&&uPortOn==1){vec4 a=texture(uPort,tl),b=texture(uPort2,tl);float v=uOvSel==1?a.r:uOvSel==2?a.g:uOvSel==3?a.b:uOvSel==4?b.r:uOvSel==5?b.g:uOvSel==6?b.b:b.a;
+  return mix(c*.7,mix(c,vec3(1.,.3,.7),.6),clamp(v,0.,1.));}
  if(uPortOn==1){float fwo=min(faceWt(tl),1.);vec4 pm=texture(uPort,tl)*fwo;vec4 p2=texture(uPort2,tl)*fwo;acc+=vec4(1.,.35,.6,1.)*pm.r*.45;acc+=vec4(.2,.95,1.,1.)*max(max(pm.g,pm.b),pm.a)*.6;
   acc+=vec4(1.,.2,1.,1.)*max(max(p2.r,p2.g),max(p2.b,p2.a))*.5*step(.001,dot(uMK,uMK));}
  if(uSkyOn==1)acc+=vec4(.25,.5,1.,1.)*texture(uSkyM,tl).r*.5;

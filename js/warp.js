@@ -29,10 +29,11 @@ function buildDisp(p,faces,aspect){const po=p.portrait||{},L=p.liquify||[];
     if(pf.nose){const a=P(129),b=P(358);if(a&&b){const c=[(a[0]+b[0])/2,(a[1]+b[1])/2];scale(c[0],c[1],dist(a,b)*.95,-pf.nose/100*.28);}}
     if(pf.smile){const a=P(61),b=P(291);if(a&&b){const mw=dist(a,b),s=pf.smile/100;push(a[0],a[1],mw*.38,-mw*.03*s,-mw*.07*s);push(b[0],b[1],mw*.38,mw*.03*s,-mw*.07*s);}}});
   for(const st of L){const r=st.r*Hd,s=st.s;const pts=st.p.map(([u,v])=>[u*Wd,v*Hd]);if(!pts.length)continue;
-    if(st.m==='push'){for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];push(b[0],b[1],r,(b[0]-a[0])*s,(b[1]-a[1])*s);}continue;}
+    if(st.m==='push'){for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];const d=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(d/Math.max(1,r*.15)));
+      for(let k=1;k<=n;k++){const c=[a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n];push(c[0],c[1],r,(b[0]-a[0])/n*s*.8,(b[1]-a[1])/n*s*.8);}}continue;}
     const step=Math.max(1,r*.3);let prev=null;
-    const apply=c=>{if(st.m==='bloat')scale(c[0],c[1],r,s*.08);else if(st.m==='pucker')scale(c[0],c[1],r,-s*.08);else restore(c[0],c[1],r,s*.35);};
-    for(const q of pts){if(!prev){apply(q);prev=q;continue;}const d=Math.hypot(q[0]-prev[0],q[1]-prev[1]);if(d<step){if(st.m!=='restore')apply(prev);continue;}
+    const apply=c=>{if(st.m==='bloat')scale(c[0],c[1],r,s*.035);else if(st.m==='pucker')scale(c[0],c[1],r,-s*.035);else restore(c[0],c[1],r,s*.25);};
+    for(const q of pts){if(!prev){apply(q);prev=q;continue;}const d=Math.hypot(q[0]-prev[0],q[1]-prev[1]);if(d<step){apply(prev);continue;}
       const n=Math.floor(d/step);for(let k=1;k<=n;k++){const c=[prev[0]+(q[0]-prev[0])*k/n,prev[1]+(q[1]-prev[1])*k/n];apply(c);}prev=q;}}
   for(let i=0;i<D.length;i+=4){D[i]/=Wd;D[i+1]/=Hd;}
   return{w:Wd,h:Hd,data:D};}

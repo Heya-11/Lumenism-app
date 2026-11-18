@@ -295,3 +295,7 @@ body.m .film .thumbs{order:2;flex:1 0 100%;height:66px}
 body.m .fstack span{font-size:11px}
 
 body.m .empty{padding:0 20px;text-align:center}body.m .empty .tb{margin:6px auto 0}body.m #bOpenRaw{background:#222;border-color:var(--line2)}
+
+.msens{margin:8px 0 4px}.msens>span{display:block;font-size:11px;color:var(--dim);margin-bottom:4px}
+body.m .left .msens{margin:4px 12px 8px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}

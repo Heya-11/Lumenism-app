@@ -55,7 +55,7 @@ function initMobile(){
   document.addEventListener('pointermove',e=>{if(!sd||e.pointerId!==sd.id)return;const dx=e.clientX-sd.x,dy=e.clientY-sd.y;
     if(!sd.dir){if(Math.abs(dx)>7&&Math.abs(dx)>Math.abs(dy)*1.2){sd.dir='h';sd.x=e.clientX;sd.row.classList.add('drag');try{sd.row.setPointerCapture(e.pointerId);}catch(_){}}else if(Math.abs(dy)>8){sd=null;}return;}
     const mn=+sd.rng.min,mx=+sd.rng.max,st=+sd.rng.step||1;const fine=Math.abs(e.clientY-sd.y)>60?.25:1;
-    let v=sd.v+(e.clientX-sd.x)/sd.w*(mx-mn)*fine;v=clamp(Math.round(v/st)*st,mn,mx);if(+sd.rng.value!==v){sd.rng.value=v;sd.rng.dispatchEvent(new Event('input',{bubbles:true}));}},true);
+    let v=sd.v+(e.clientX-sd.x)/sd.w*(mx-mn)*fine*UI.sens;v=clamp(Math.round(v/st)*st,mn,mx);if(+sd.rng.value!==v){sd.rng.value=v;sd.rng.dispatchEvent(new Event('input',{bubbles:true}));}},true);
   const sEnd=e=>{if(!sd||e.pointerId!==sd.id)return;const d=sd;sd=null;d.row.classList.remove('drag');if(d.dir==='h'&&+d.rng.value!==d.v)d.rng.dispatchEvent(new Event('change',{bubbles:true}));};
   document.addEventListener('pointerup',sEnd,true);document.addEventListener('pointercancel',sEnd,true);
   /* double-tap a slider row = reset (dblclick is unreliable on touch) */
@@ -94,6 +94,7 @@ function initMobile(){
     /* Android: image/* only -> system photo picker (gallery). RAW needs the file browser, so it gets its own input/button */
     const f=$('file'),raw=f.cloneNode();raw.id='fileRaw';raw.accept=f.accept;f.accept='image/*';f.after(raw);raw.onchange=e=>{addFiles(e.target.files);e.target.value='';};
     const rb=el('button','tb','RAW · 파일에서 열기');rb.id='bOpenRaw';rb.onclick=()=>raw.click();$('bOpen2').after(rb);$('bOpen2').textContent='갤러리에서 사진 선택';
+    const sb=el('div','msens');sb.innerHTML='<span>터치 조절 감도</span>';lclose.after(sb);sensChips(sb);
     const lr=el('button','btn full','RAW · 파일에서 사진 열기');lr.style.margin='4px 12px 8px';lr.style.width='calc(100% - 24px)';lr.onclick=()=>{setLib(false);raw.click();};lclose.after(lr);
     const ep=document.querySelector('#empty p');if(ep)ep.textContent='갤러리에서 사진을 고르세요. RAW(CR2·NEF·ARW·DNG 등)는 ‘RAW · 파일에서 열기’로 여세요. 사진은 휴대폰 안에서만 처리돼요.';}
   MB.sheet='half';applyLayout();}
@@ -102,3 +103,7 @@ function initMobile(){
 async function shareFiles(files){const fl=files.map(f=>new File([f.blob],f.name,{type:f.blob.type}));
   if(!(navigator.canShare&&navigator.canShare({files:fl})))return false;
   try{await navigator.share({files:fl,title:'Lumenism'});return true;}catch(e){if(e&&e.name==='AbortError')return true;console.warn(e);return false;}}
+
+const SENS=[[.45,'세밀하게'],[1,'보통'],[1.7,'빠르게']];
+function setSens(v){UI.sens=v;try{localStorage.setItem('lumen.sens',v);}catch(e){}document.querySelectorAll('.senschips button').forEach(b=>b.classList.toggle('on',+b.dataset.v===v));}
+function sensChips(parent){const d=el('div','chips senschips');SENS.forEach(([v,n])=>{const b=el('button','',n);b.dataset.v=v;b.classList.toggle('on',v===UI.sens);b.onclick=()=>setSens(v);d.appendChild(b);});parent.appendChild(d);return d;}

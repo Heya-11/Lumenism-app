@@ -16,7 +16,7 @@ function modeHint(){if(UI.pick)return{wb:'회색이나 흰색이어야 할 곳�
   if(tool==='retouch'){const m=UI.ret.mode;if(m==='stamp')return UI.ret.awaitSrc||!UI.ret.src?'복제할 소스 지점을 클릭하세요 (Alt+클릭)':'칠해서 소스를 복제하세요 · Alt+클릭으로 소스 다시 지정';
     return{heal:'고칠 곳을 클릭하세요 — 주변과 어울리게 자동으로 메워요',clone:'고칠 곳을 클릭하세요 — 다른 곳을 그대로 복사해요',redeye:'눈 중심에서 바깥으로 드래그하세요',fill:'지울 대상을 브러시로 칠하면 주변 내용으로 채워요'}[m];}
   if(UI.pick==='aisubject')return'선택할 피사체를 클릭하세요';
-  if(tool==='portrait')return UI.liq.mode!=='off'?'드래그해서 유동화 · [ ] 크기 · Space+드래그 이동':'';
+  if(tool==='portrait')return UI.pe.on?`칠해서 ${PE_CH[UI.pe.c][0]} 범위 ${UI.pe.m==='add'?'더하기':'지우기'} · 두 손가락으로 이동`:UI.liq.mode!=='off'?'드래그해서 유동화 · [ ] 크기 · Space+드래그 이동':'';
   if(tool==='layers')return selLayer()&&(selLayer().type==='image'||selLayer().type==='text')?'레이어를 드래그해서 옮기세요':'';
   return'';}
 function updateModeUI(){vhint(modeHint());const m=$('mHint');if(m)m.textContent=tool==='mask'?modeHint():'';const rh=$('retHint');if(rh)rh.textContent=tool==='retouch'?modeHint():'';
@@ -264,7 +264,9 @@ let pend=null;/* touch: wait briefly before starting a tool stroke so a second f
 function pinchStart(){const [a,b]=[...pointers.values()];const r=vw.getBoundingClientRect();const m=[(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top];
   pan={pinch:Math.hypot(a.x-b.x,a.y-b.y),s:view.s,m,vx:view.x,vy:view.y};vw.classList.add('panning');}
 function flushPend(){if(!pend)return;const p=pend;pend=null;clearTimeout(p.t);if(!startAct(p.mx,p.my,p.e)){pan={x:p.cx,y:p.cy,vx:view.x,vy:view.y};vw.classList.add('panning');}}
+let ftap=null;/* touch: 2-finger tap = undo, 3-finger tap = redo */
 vw.addEventListener('pointerdown',e=>{if(!cur||e.target.closest('.empty'))return;try{vw.setPointerCapture(e.pointerId);}catch(_){}pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(e.pointerType==='touch'){if(pointers.size===1)ftap={t:performance.now(),n:1,o:new Map([[e.pointerId,[e.clientX,e.clientY]]]),moved:false};else if(ftap){ftap.n=Math.max(ftap.n,pointers.size);ftap.o.set(e.pointerId,[e.clientX,e.clientY]);}}
   const [mx,my]=rel(e);
   if(pointers.size===2){if(pend){clearTimeout(pend.t);pend=null;}if(act){act.up();act=null;}pinchStart();return;}
   if(pointers.size>2)return;
@@ -278,6 +280,7 @@ vw.addEventListener('pointerdown',e=>{if(!cur||e.target.closest('.empty'))return
 vw.addEventListener('pointermove',e=>{const [mx,my]=rel(e);
   if(tool==='mask'||tool==='retouch'||tool==='portrait'){hoverPos=[mx,my];if(!act&&!pan)drawOverlay();}
   if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ftap&&!ftap.moved){const o=ftap.o.get(e.pointerId);if(o&&Math.hypot(e.clientX-o[0],e.clientY-o[1])>14)ftap.moved=true;}
   if(pend){if(Math.hypot(e.clientX-pend.cx,e.clientY-pend.cy)>6)flushPend();else return;}
   if(act){act.move(mx,my);if(tool==='mask'||tool==='retouch'||tool==='portrait')drawOverlay();return;}
   if(!pan)return;
@@ -285,7 +288,9 @@ vw.addEventListener('pointermove',e=>{const [mx,my]=rel(e);
     const o=cur&&R?cur.w/R.w:1;const ns=clamp(pan.s*Math.hypot(a.x-b.x,a.y-b.y)/pan.pinch,.02,8*o);
     view.x=m[0]-(pan.m[0]-pan.vx)*(ns/pan.s);view.y=m[1]-(pan.m[1]-pan.vy)*(ns/pan.s);view.s=ns;view.fit=false;applyView();}
   else if(!pan.pinch){view.x=pan.vx+e.clientX-pan.x;view.y=pan.vy+e.clientY-pan.y;view.fit=false;applyView();}});
-const endPtr=e=>{pointers.delete(e.pointerId);if(pend&&pointers.size===0){const p=pend;flushPend();if(act){const [mx,my]=rel(e);act.move(mx,my);}}if(pan&&pan.pinch&&pointers.size===1){pan=null;}if(act&&pointers.size===0){const a=act;act=null;a.up();}if(pointers.size===0){pan=null;vw.classList.remove('panning');}};
+const endPtr=e=>{pointers.delete(e.pointerId);
+  if(ftap&&pointers.size===0){const f=ftap;ftap=null;if(f.n>=2&&!f.moved&&performance.now()-f.t<380&&e.type==='pointerup'){if(pend){clearTimeout(pend.t);pend=null;}if(act){act.up();act=null;}pan=null;vw.classList.remove('panning');
+    if(f.n===2){if(cur.hi>0){gotoHistory(cur.hi-1);toast('실행 취소');}}else if(cur.hi<cur.history.length-1){gotoHistory(cur.hi+1);toast('다시 실행');}return;}}if(pend&&pointers.size===0){const p=pend;flushPend();if(act){const [mx,my]=rel(e);act.move(mx,my);}}if(pan&&pan.pinch&&pointers.size===1){pan=null;}if(act&&pointers.size===0){const a=act;act=null;a.up();}if(pointers.size===0){pan=null;vw.classList.remove('panning');}};
 vw.addEventListener('pointerup',endPtr);vw.addEventListener('pointercancel',endPtr);
 vw.addEventListener('pointerleave',()=>{hoverPos=null;if(tool==='mask'||tool==='retouch'||tool==='portrait')drawOverlay();});
 vw.addEventListener('dblclick',e=>{if(!cur||tool!=='edit'||UI.tat||e.target.closest('.empty'))return;const [mx,my]=rel(e);toggleZoom(mx,my);});

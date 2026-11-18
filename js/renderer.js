@@ -141,14 +141,15 @@ class Renderer{
     this.base=this.retTex;this.computeBlurs();this.fieldKey='';}
   aiTex(aid){if(!aid)return null;const m=STORE.aimaps.get(aid);if(!m)return null;this.aiT=this.aiT||new Map();let t=this.aiT.get(aid);if(t)return t;
     t=this.tex(m.w,m.h,{r8:true,data:m.data});this.aiT.set(aid,t);return t;}
-  portTex(aid){const d=aid&&STORE.portrait.get(aid);if(!d)return null;this.pT=this.pT||new Map();let t=this.pT.get(aid);if(t)return t;
-    const gl=this.gl;t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,d.w,d.h,0,gl.RGBA,gl.UNSIGNED_BYTE,d.rgba);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);this.pT.set(aid,t);return t;}
+  portTex(aid,edits){const d=aid&&STORE.portrait.get(aid);if(!d)return null;const ed=portArrays(d,edits);this.pT=this.pT||new Map();let t=this.pT.get(aid);
+    if(t&&t.v===ed.v)return t.t;const gl=this.gl;if(!t){t={t:this.rgbaTex(d.w,d.h,ed.rgba)};this.pT.set(aid,t);}else{gl.bindTexture(gl.TEXTURE_2D,t.t);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,d.w,d.h,gl.RGBA,gl.UNSIGNED_BYTE,ed.rgba);}
+    t.v=ed.v;return t.t;}
   rgbaTex(w,h,data){const gl=this.gl,t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,data);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);return t;}
-  port2Tex(aid){const d=aid&&STORE.portrait.get(aid);if(!d||!d.rgba2)return null;this.pT2=this.pT2||new Map();let t=this.pT2.get(aid);if(!t){t=this.rgbaTex(d.w,d.h,d.rgba2);this.pT2.set(aid,t);}return t;}
+  port2Tex(aid,edits){const d=aid&&STORE.portrait.get(aid);if(!d||!d.rgba2)return null;const ed=portArrays(d,edits);this.pT2=this.pT2||new Map();let t=this.pT2.get(aid);
+    if(t&&t.v===ed.v)return t.t;const gl=this.gl;if(!t){t={t:this.rgbaTex(d.w,d.h,ed.rgba2)};this.pT2.set(aid,t);}else{gl.bindTexture(gl.TEXTURE_2D,t.t);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,d.w,d.h,gl.RGBA,gl.UNSIGNED_BYTE,ed.rgba2);}
+    t.v=ed.v;return t.t;}
   skyTex(key){const c=skyImage(key);if(!c)return null;this.skT=this.skT||new Map();let t=this.skT.get(key);if(t)return t;
     const d=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,c.width,c.height).data;t={tex:this.rgbaTex(c.width,c.height,d),w:c.width,h:c.height,avg:skyAvg(d)};this.skT.set(key,t);return t;}
   skyOld(aid){this.skO=this.skO||new Map();if(this.skO.has(aid))return this.skO.get(aid);const m=STORE.aimaps.get(aid);const fw=this.fw,fh=this.fh,s=this.fieldSrc;let r=0,g=0,b=0,n=0;
@@ -226,9 +227,9 @@ class Renderer{
     if(cv.width!==rw||cv.height!==rh){cv.width=rw;cv.height=rh;}
     const reg=[rx/W,1-(ry+rh)/H,rw/W,rh/H],fs=Math.min(1,2560/Math.max(W,H));
     this.updateRetouch(p.retouch);this.setLut(p);this.setLut3(p.lut.id);this.updateField(p,o);
-    const dOn=this.updateDisp(p);const pd=STORE.portrait.get(p.portrait.aid),ptT=pd?this.portTex(p.portrait.aid):null;
+    const dOn=this.updateDisp(p);const pd=STORE.portrait.get(p.portrait.aid),ptT=pd?this.portTex(p.portrait.aid,p.portrait.edits):null;
     /* create every texture before binding starts (creating binds to the active unit and would clobber earlier bindings) */
-    if(pd)this.port2Tex(p.portrait.aid);if(p.sky&&p.sky.on&&p.sky.aid&&this.aiTex(p.sky.aid))this.skyTex(p.sky.src);if(p.light&&p.light.on)this.aiTex(p.light.aid);if(o.aiOv&&p.fx.aid)this.aiTex(p.fx.aid);
+    if(pd)this.port2Tex(p.portrait.aid,p.portrait.edits);if(p.sky&&p.sky.on&&p.sky.aid&&this.aiTex(p.sky.aid))this.skyTex(p.sky.src);if(p.light&&p.light.on)this.aiTex(p.light.aid);if(o.aiOv&&p.fx.aid)this.aiTex(p.fx.aid);
     const out=this.ensureOut(rw,rh,fs);const split=o.bypass?2:(o.split??-1);
     // ---- develop
     const B=[rw,0,rx,0,-rh,ry+rh,0,0,1],A=[1/w,0,0,0,-1/h,1,0,0,1];const M=M3.chain(A,G.T,B);
@@ -261,7 +262,7 @@ class Renderer{
     i1('uPortOn',ptT?1:0);this.bindTex(D,'uPort',10,ptT||this.empty);
     gl.uniform4f(this.u(D,'uPA'),po.smooth/100,po.keep/100,po.red/100,po.bright/100);
     gl.uniform4f(this.u(D,'uPB'),po.eyes/100,po.iris/100,po.teeth/100,pd?Math.max(1.5,pd.faceW*h*.018):2);
-    const pt2=pd?this.port2Tex(p.portrait.aid):null;this.bindTex(D,'uPort2',11,pt2||this.empty);
+    const pt2=pd?this.port2Tex(p.portrait.aid,p.portrait.edits):null;this.bindTex(D,'uPort2',11,pt2||this.empty);
     gl.uniform4f(this.u(D,'uMK'),(po.lip||0)/100,(po.blush||0)/100,(po.brow||0)/100,(po.dark||0)/100);gl.uniform2f(this.u(D,'uMH'),(po.lipH??352)/360,(po.blushH??6)/360);
     const fc=new Float32Array(32),fwa=new Float32Array(8);let fn=0;if(pd)pd.faces.slice(0,8).forEach((q,i)=>{fc.set([(q.box[0]+q.box[2])/2,(q.box[1]+q.box[3])/2,0,0],i*4);fwa[i]=((po.fw||[])[i]??100)/100;fn++;});
     gl.uniform4fv(this.u(D,'uFC'),fc);gl.uniform1fv(this.u(D,'uFW'),fwa);i1('uFN',fn);
@@ -279,7 +280,7 @@ class Renderer{
       const wm=(lt.warm||0)/100,wc=wm>=0?[1,.82,.6]:[.65,.8,1];gl.uniform3fv(this.u(D,'uRelC'),wc.map(v=>1+(v-1)*Math.abs(wm)));
       gl.uniform4f(this.u(D,'uRelP'),lt.amt/100,lt.amb/100,1,28);}
     const fxp=p.fx;let ovT=null,ovType=0;if(o.aiOv&&fxp.tilt>=3&&fxp.tilt<=5&&fxp.aid){ovT=this.aiTex(fxp.aid);ovType=ovT?(fxp.tilt===4?2:1):0;}
-    i1('uAIOv',o.aiOv?1:0);i1('uOvFT',ovType);this.bindTex(D,'uOvF',15,ovT||this.empty);gl.uniform2f(this.u(D,'uOvFP'),fxp.fdepth??.5,(fxp.dof??8)/100);
+    i1('uAIOv',o.aiOv?1:0);i1('uOvSel',o.ovSel||0);i1('uOvFT',ovType);this.bindTex(D,'uOvF',15,ovT||this.empty);gl.uniform2f(this.u(D,'uOvFP'),fxp.fdepth??.5,(fxp.dof??8)/100);
     gl.drawArrays(gl.TRIANGLES,0,3);
     let curT=out.dev;
     // ---- effects
