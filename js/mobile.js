@@ -90,7 +90,12 @@ function initMobile(){
   window.addEventListener('resize',()=>{clearTimeout(MB.rt);MB.rt=setTimeout(applyLayout,60);});
   try{if(window.viewport&&window.viewport.addEventListener)window.viewport.addEventListener('segmentschange',applyLayout);}catch(e){}
   try{if(navigator.devicePosture)navigator.devicePosture.addEventListener('change',applyLayout);}catch(e){}
-  if(MB.touch)$('filmHint').textContent='길게 눌러 여러 장 선택';
+  if(MB.touch){$('filmHint').textContent='길게 눌러 여러 장 선택';
+    /* Android: image/* only -> system photo picker (gallery). RAW needs the file browser, so it gets its own input/button */
+    const f=$('file'),raw=f.cloneNode();raw.id='fileRaw';raw.accept=f.accept;f.accept='image/*';f.after(raw);raw.onchange=e=>{addFiles(e.target.files);e.target.value='';};
+    const rb=el('button','tb','RAW · 파일에서 열기');rb.id='bOpenRaw';rb.onclick=()=>raw.click();$('bOpen2').after(rb);$('bOpen2').textContent='갤러리에서 사진 선택';
+    const lr=el('button','btn full','RAW · 파일에서 사진 열기');lr.style.margin='4px 12px 8px';lr.style.width='calc(100% - 24px)';lr.onclick=()=>{setLib(false);raw.click();};lclose.after(lr);
+    const ep=document.querySelector('#empty p');if(ep)ep.textContent='갤러리에서 사진을 고르세요. RAW(CR2·NEF·ARW·DNG 등)는 ‘RAW · 파일에서 열기’로 여세요. 사진은 휴대폰 안에서만 처리돼요.';}
   MB.sheet='half';applyLayout();}
 
 /* share (Android: 공유 → 갤러리/드라이브 등) */
