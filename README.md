@@ -59,5 +59,10 @@ manifest.webmanifest    앱 설치 정보(이름·아이콘)
 robots.txt, .nojekyll   검색 차단 · GitHub Pages 설정
 css/  js/  assets/      스타일 · 코드 · 아이콘
 MANUAL.md               기능 설명서 (17장: 모바일)
+CREDITS.md              사용한 오픈소스 · AI 모델 · 글꼴과 라이선스
 ```
 PC에서도 같은 주소를 열면 PC 화면 구성으로 그대로 쓸 수 있어요.
+
+
+## 오픈소스 고지
+사용한 라이브러리, AI 모델, 글꼴과 각 라이선스는 [CREDITS.md](CREDITS.md)에 정리되어 있어요.
