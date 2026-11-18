@@ -142,7 +142,7 @@ function portArrays(pd,edits){edits=edits||[];const key=JSON.stringify(edits.map
     for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],d=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(d/(r*.3)));for(let k=1;k<=n;k++)dab(a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n);}}
   pd._ed={key,rgba:A[0],rgba2:A[1],v:(pd._ed?pd._ed.v:0)+1};return pd._ed;}
 function peToggle(on){UI.pe.on=on??!UI.pe.on;if(UI.pe.on)UI.liq.mode='off';syncUI();updateModeUI();requestRender();drawOverlay();
-  if(UI.pe.on)toast('색으로 표시된 곳이 적용 범위예요. 손가락으로 칠해서 더하거나 지우세요');}
+  if(UI.pe.on)toast('색으로 표시된 곳이 적용 범위예요. '+(MB.touch?'손가락으로':'드래그해서')+' 칠해서 더하거나 지우세요');}
 function peReset(){const c=UI.pe.c,E=P().portrait.edits||[];const n=E.length;P().portrait.edits=E.filter(s=>s.c!==c);if(P().portrait.edits.length!==n){requestRender();commit(`범위 다듬기 초기화: ${PE_CH[c][0]}`);}}
 function portraitOverlay(){let s='';const pd=STORE.portrait.get(P().portrait.aid);
   if(pd)pd.faces.forEach((f,i)=>{const a=srcToScreen([f.box[0],f.box[1]]),b=srcToScreen([f.box[2],f.box[3]]);const x0=Math.min(a[0],b[0]),y0=Math.min(a[1],b[1]);const w=((P().portrait.fw||[])[i]??100);
