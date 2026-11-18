@@ -52,3 +52,32 @@ async function addFaceAt(uv){const ph=cur;let none=false;const f=await aiRun(asy
   const faces=await aiFaces(ph);if(faces.some(g=>iou(g.box,f.box)>.3)){toast('이미 찾은 얼굴이에요');return;}
   const keep=(P().portrait.fw||[]).slice(),keepPf=clone(P().portrait.pf||[]);faces.push(f);await analyzePortrait({quiet:true});
   if(cur===ph){P().portrait.fw=faces.map((_,i)=>keep[i]??100);P().portrait.pf=keepPf;syncUI();requestRender();toast(`얼굴을 추가했어요 (모두 ${faces.length}명)`+(f.profile?' · 옆모습이라 피부 보정만 적용돼요':''));}}
+/* ================= Face covering (privacy): mosaic / blur / solid over chosen faces or hand-drawn areas ================= */
+const PV_STYLE={mosaic:0,blur:1,solid:2};
+function privItems(p){const pv=p.privacy;if(!pv||!pv.items||!pv.items.length)return[];const ex=1+(pv.expand??35)/100*.9,n=16-11*(pv.amt??50)/100,st=PV_STYLE[pv.style]??0;
+  return pv.items.map(it=>{const rx=it.r[0]*ex,ry=it.r[1]*ex;return{type:'privacy',bb:[it.c[0],it.c[1],rx,ry],blk:Math.max(.002,2*ry/n),st};});}
+function faceCoverItem(f,i){const cx=(f.box[0]+f.box[2])/2,cy=(f.box[1]+f.box[3])/2;return{id:uid('v'),face:i,c:[rnd4(cx),rnd4(cy-(f.box[3]-f.box[1])*.06)],r:[rnd4((f.box[2]-f.box[0])/2*1.08),rnd4((f.box[3]-f.box[1])/2*1.12)]};}
+function pvFaces(){const pd=STORE.portrait.get(P().portrait.aid);return pd?pd.faces:[];}
+function pvCovered(i){return P().privacy.items.some(it=>it.face===i);}
+function pvToggleFace(i,on){const pv=P().privacy,f=pvFaces()[i];if(!f)return;on=on??!pvCovered(i);pv.items=pv.items.filter(it=>it.face!==i);if(on)pv.items.push(faceCoverItem(f,i));
+  syncUI();requestRender();drawOverlay();commit(`얼굴 ${i+1} ${on?'가리기':'가리기 해제'}`);}
+function pvAll(except){const fs=pvFaces();if(!fs.length){toast('먼저 ‘얼굴·피부 분석’을 해 주세요. 직접 그려서 가릴 수도 있어요');return;}const pv=P().privacy;
+  pv.items=pv.items.filter(it=>it.face==null).concat(fs.map((f,i)=>i===except?null:faceCoverItem(f,i)).filter(Boolean));syncUI();requestRender();drawOverlay();
+  commit(except!=null?`얼굴 ${except+1} 빼고 모두 가리기`:'모든 얼굴 가리기');}
+function pvClear(){const pv=P().privacy;if(!pv.items.length)return;pv.items=[];syncUI();requestRender();drawOverlay();commit('얼굴 가리기 모두 해제');}
+function pvToggleMode(on){UI.pv=on??!UI.pv;if(UI.pv){UI.pe.on=false;UI.liq.mode='off';toast((MB.touch?'얼굴을 탭하면':'얼굴을 클릭하면')+' 가리기/해제, 끌어서 그리면 그 영역을 가려요');}syncUI();updateModeUI();requestRender();drawOverlay();}
+/* in covering mode: tap a face = toggle, tap a drawn area = remove, drag = draw a new ellipse area */
+function pvDown(mx,my){const s=screenToSrc(mx,my);const pv=P().privacy;let tmp=null;
+  return{move(x,y){const e=screenToSrc(x,y);if(!tmp&&Math.hypot(x-mx,y-my)<8)return;
+      if(!tmp){tmp={id:uid('v'),face:null,c:[0,0],r:[0,0]};pv.items.push(tmp);}
+      tmp.c=[rnd4((s[0]+e[0])/2),rnd4((s[1]+e[1])/2)];tmp.r=[rnd4(Math.abs(e[0]-s[0])/2),rnd4(Math.abs(e[1]-s[1])/2)];requestRender();drawOverlay();},
+    up(){if(tmp){if(tmp.r[0]*R.last.w<4||tmp.r[1]*R.last.h<4){pv.items=pv.items.filter(q=>q!==tmp);requestRender();return;}commit('직접 그려서 가리기');return;}
+      const hit=pv.items.slice().reverse().find(it=>it.face==null&&Math.hypot((s[0]-it.c[0])/it.r[0],(s[1]-it.c[1])/it.r[1])<=1);
+      if(hit){pv.items=pv.items.filter(q=>q!==hit);requestRender();drawOverlay();commit('가린 영역 지우기');return;}
+      const fi=pvFaces().findIndex(f=>s[0]>f.box[0]&&s[0]<f.box[2]&&s[1]>f.box[1]&&s[1]<f.box[3]);if(fi>=0)pvToggleFace(fi);}};}
+function pvOverlay(){if(!(tool==='portrait'&&UI.pv))return'';let s='';const ex=1+(P().privacy.expand??35)/100*.9;
+  P().privacy.items.forEach(it=>{const c=srcToScreen(it.c),e=srcToScreen([it.c[0]+it.r[0]*ex,it.c[1]+it.r[1]*ex]);
+    s+=`<ellipse cx="${c[0]}" cy="${c[1]}" rx="${Math.abs(e[0]-c[0])}" ry="${Math.abs(e[1]-c[1])}" fill="none" stroke="#ff6b6b" stroke-width="1.5"/>`;});
+  pvFaces().forEach((f,i)=>{if(pvCovered(i))return;const a=srcToScreen([f.box[0],f.box[1]]),b=srcToScreen([f.box[2],f.box[3]]);
+    s+=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="rgba(255,255,255,.06)" stroke="#fff" stroke-dasharray="3 3"/>`;});
+  return s;}

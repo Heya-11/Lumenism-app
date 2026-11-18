@@ -16,7 +16,7 @@ function modeHint(){if(UI.pick)return{addFace:'못 찾은 얼굴의 한가운데
   if(tool==='retouch'){const m=UI.ret.mode;if(m==='stamp')return UI.ret.awaitSrc||!UI.ret.src?'복제할 소스 지점을 클릭하세요 (Alt+클릭)':'칠해서 소스를 복제하세요 · Alt+클릭으로 소스 다시 지정';
     return{heal:'고칠 곳을 클릭하세요 — 주변과 어울리게 자동으로 메워요',clone:'고칠 곳을 클릭하세요 — 다른 곳을 그대로 복사해요',redeye:'눈 중심에서 바깥으로 드래그하세요',fill:'지울 대상을 브러시로 칠하면 주변 내용으로 채워요'}[m];}
   if(UI.pick==='aisubject')return'선택할 피사체를 클릭하세요';
-  if(tool==='portrait')return UI.pe.on?`칠해서 ${PE_CH[UI.pe.c][0]} 범위 ${UI.pe.m==='add'?'더하기':'지우기'} · 두 손가락으로 이동`:UI.liq.mode!=='off'?'드래그해서 유동화 · [ ] 크기 · Space+드래그 이동':'';
+  if(tool==='portrait')return UI.pv?(MB.touch?'얼굴 탭 = 가리기/해제 · 끌어서 그리기 = 영역 가리기 · 그린 영역 탭 = 지우기':'얼굴 클릭 = 가리기/해제 · 드래그 = 영역 가리기 · 그린 영역 클릭 = 지우기'):UI.pe.on?`칠해서 ${PE_CH[UI.pe.c][0]} 범위 ${UI.pe.m==='add'?'더하기':'지우기'} · 두 손가락으로 이동`:UI.liq.mode!=='off'?'드래그해서 유동화 · [ ] 크기 · Space+드래그 이동':'';
   if(tool==='layers')return selLayer()&&(selLayer().type==='image'||selLayer().type==='text')?'레이어를 드래그해서 옮기세요':'';
   return'';}
 function updateModeUI(){vhint(modeHint());const m=$('mHint');if(m)m.textContent=tool==='mask'?modeHint():'';const rh=$('retHint');if(rh)rh.textContent=tool==='retouch'?modeHint():'';

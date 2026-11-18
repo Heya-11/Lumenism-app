@@ -122,7 +122,7 @@ function faceTapAct(mx,my){const pd=STORE.portrait.get(P().portrait.aid);if(!pd|
       if(hit<0)return;selectFace(UI.face===hit?-1:hit);}};}
 function selectFace(i){UI.face=i;syncUI();drawOverlay();if(i>=0)toast(`얼굴 ${i+1}만 따로 보정해요. ‘전체’를 누르면 모든 얼굴 설정으로 돌아가요`);}
 function clearFaceOverrides(){const po=P().portrait;if(UI.face<0||!po.pf||!po.pf[UI.face])return;po.pf[UI.face]=null;syncUI();requestRender();commit(`얼굴 ${UI.face+1} 개별 설정 지우기`);}
-function portDown(mx,my){if(UI.pe.on)return peDown(mx,my);const m=UI.liq.mode;if(m==='off')return faceTapAct(mx,my);const uv=screenToSrc(mx,my);
+function portDown(mx,my){if(UI.pv)return pvDown(mx,my);if(UI.pe.on)return peDown(mx,my);const m=UI.liq.mode;if(m==='off')return faceTapAct(mx,my);const uv=screenToSrc(mx,my);
   const st={m,r:+(UI.liq.size/(view.s*R.last.h)).toFixed(5),s:+(UI.liq.str/100*UI.sens).toFixed(3),p:[uv.map(rnd4)]};P().liquify.push(st);requestRender();
   let sm=uv.slice(),last=uv.slice();
   /* bloat/pucker/restore: grow at a steady rate while the finger rests (not per jittery move event) */
@@ -148,10 +148,10 @@ function portArrays(pd,edits){edits=edits||[];const key=JSON.stringify(edits.map
     const pts=st.p.map(([u,v])=>[u*W,v*H]);dab(pts[0][0],pts[0][1]);
     for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],d=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(d/(r*.3)));for(let k=1;k<=n;k++)dab(a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n);}}
   pd._ed={key,rgba:A[0],rgba2:A[1],v:(pd._ed?pd._ed.v:0)+1};return pd._ed;}
-function peToggle(on){UI.pe.on=on??!UI.pe.on;if(UI.pe.on)UI.liq.mode='off';syncUI();updateModeUI();requestRender();drawOverlay();
+function peToggle(on){UI.pe.on=on??!UI.pe.on;if(UI.pe.on){UI.liq.mode='off';UI.pv=false;}syncUI();updateModeUI();requestRender();drawOverlay();
   if(UI.pe.on)toast('색으로 표시된 곳이 적용 범위예요. '+(MB.touch?'손가락으로':'드래그해서')+' 칠해서 더하거나 지우세요');}
 function peReset(){const c=UI.pe.c,E=P().portrait.edits||[];const n=E.length;P().portrait.edits=E.filter(s=>s.c!==c);if(P().portrait.edits.length!==n){requestRender();commit(`범위 다듬기 초기화: ${PE_CH[c][0]}`);}}
-function portraitOverlay(){let s='';const pd=STORE.portrait.get(P().portrait.aid);
+function portraitOverlay(){let s=pvOverlay();const pd=STORE.portrait.get(P().portrait.aid);
   if(pd)pd.faces.forEach((f,i)=>{const a=srcToScreen([f.box[0],f.box[1]]),b=srcToScreen([f.box[2],f.box[3]]);const x0=Math.min(a[0],b[0]),y0=Math.min(a[1],b[1]);const w=((P().portrait.fw||[])[i]??100),sel=UI.face===i,own=!!(P().portrait.pf||[])[i];
     s+=`<rect x="${x0}" y="${y0}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="none" stroke="${sel?'#5aa0ff':`rgba(255,255,255,${w>0?.4:.15})`}" stroke-width="${sel?2:1}" stroke-dasharray="${sel?'':'4 4'}"/>`;
     if(pd.faces.length>1){const t=`${i+1}${own?' 개별':''}${w===100?'':' · '+w+'%'}`;s+=`<rect x="${x0}" y="${y0-20}" width="${10+t.length*7.5}" height="18" rx="4" fill="${sel?'#2d6fd0':'rgba(0,0,0,.6)'}"/><text x="${x0+6}" y="${y0-6}" fill="#fff" font-size="12" font-weight="600">${t}</text>`;}});

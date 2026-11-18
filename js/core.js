@@ -14,6 +14,7 @@ function defaults(){return{temp:0,tint:0,exposure:0,contrast:0,highlights:0,shad
   vig:0,vigMid:50,grain:0,grainSize:25,
   fx:{orton:0,glow:0,glowT:60,hal:0,tilt:0,blur:0,tx:.5,ty:.5,tang:0,tw:12,tf:18,shape:'circle',boost:30,fsharp:0,fdepth:.5,dof:8,aid:null,maskId:null},
   portrait:{aid:null,smooth:0,keep:50,red:0,bright:0,eyes:0,iris:0,teeth:0,slim:0,width:0,eye:0,nose:0,smile:0,lip:0,lipH:352,blush:0,blushH:6,brow:0,dark:0,fw:[],edits:[],pf:[]},liquify:[],
+  privacy:{style:'mosaic',amt:50,expand:35,items:[]},
   sky:{on:false,aid:null,src:'clear',amt:100,fg:50,bright:0,shift:0,scale:100,flip:false,edge:50},light:{on:false,aid:null,amt:50,ang:-45,elev:35,warm:20,amb:20},
   curves:{rgb:ID(),r:ID(),g:ID(),b:ID()},pcurve:{sh:0,dk:0,lt:0,hl:0,s1:25,s2:50,s3:75},
   geo:defGeo(),masks:[],retouch:[],layers:[]};}
@@ -21,7 +22,7 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 const DEF_JSON=JSON.stringify(defaults());
 const BANDS=[{n:'빨강',h:0},{n:'주황',h:30},{n:'노랑',h:60},{n:'녹색',h:120},{n:'아쿠아',h:180},{n:'파랑',h:240},{n:'자주',h:270},{n:'마젠타',h:300}];
 const ADJ_KEYS=['exposure','contrast','highlights','shadows','temp','tint','clarity','saturation'];
-const PHOTO_ONLY=['geo','retouch','layers','liquify'];
+const PHOTO_ONLY=['geo','retouch','layers','liquify','privacy'];
 const PRESETS=[
   {n:'기본값 (색·톤 초기화)',p:{}},
   {n:'선명하게',p:{contrast:18,clarity:18,texture:10,dehaze:8,vibrance:35,saturation:5,sharpen:30}},
@@ -44,7 +45,7 @@ const UI={compare:'off',splitX:.5,clip:false,pick:null,tat:null,hslTab:'H',curve
   straighten:false,guide:false,guideLines:[],pendingCreate:null,pendingMode:'add',showOverlay:true,space:false,
   brush:{size:60,feather:50,flow:60,erase:false,auto:false},
   ret:{mode:'heal',size:40,feather:50,op:100,src:null,off:null,awaitSrc:false,ai:false},
-  liq:{mode:'off',size:80,str:35},pe:{on:false,c:'lip',m:'add',size:30},face:-1,sens:+(localStorage.getItem('lumen.sens')||1),aiMode:'new',recAI:false,cropSug:null,tagQuery:'',blemSens:50,aiOv:false,stacks:false,openStacks:new Set(),
+  liq:{mode:'off',size:80,str:35},pe:{on:false,c:'lip',m:'add',size:30},face:-1,pv:false,sens:+(localStorage.getItem('lumen.sens')||1),aiMode:'new',recAI:false,cropSug:null,tagQuery:'',blemSens:50,aiOv:false,stacks:false,openStacks:new Set(),
   batch:{portrait:true,makeup:true,bokeh:true,sky:true,light:true},
   filter:'all',fullPreview:(()=>{try{return localStorage.getItem('darkroom.full')==='1';}catch(e){return false;}})()};
 const EXP_DEF={target:'cur',fmt:'image/jpeg',q:92,size:0,os:0,tpl:'{name}_edit',

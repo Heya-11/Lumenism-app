@@ -127,7 +127,7 @@ class Renderer{
     this.pass(this.pCopy,this.srcTex,this.retF,w,h);
     const P=this.pRet;gl.useProgram(P);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
     this.bindTex(P,'uOrig',0,this.srcTex);gl.uniform1f(this.u(P,'uAspect'),w/h);
-    for(const it of items){let kind={heal:0,clone:1,redeye:2,stamp:3,fill:4}[it.type];let wt=this.empty;
+    for(const it of items){let kind={heal:0,clone:1,redeye:2,stamp:3,fill:4,privacy:5}[it.type];let wt=this.empty;
       if(it.type==='stamp')wt=this.brushTex(it,false);
       if(it.type==='fill'){wt=this.patchTex.get(it.pid);if(!wt){const cv=STORE.patches.get(it.pid);if(!cv)continue;wt=this.tex(cv.width,cv.height,{src:cv});this.patchTex.set(it.pid,wt);}}
       gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,this.retF);gl.viewport(0,0,w,h);
@@ -136,6 +136,7 @@ class Renderer{
       gl.uniform2fv(this.u(P,'uD'),it.d||it.c||[0,0]);gl.uniform2fv(this.u(P,'uS'),it.s||[0,0]);gl.uniform2fv(this.u(P,'uOff'),it.off||[0,0]);
       gl.uniform1f(this.u(P,'uR'),it.r||.01);gl.uniform1f(this.u(P,'uRpx'),(it.r||.01)*h);gl.uniform1f(this.u(P,'uF'),Math.max(.01,(it.f??50)/100));gl.uniform1f(this.u(P,'uOp'),(it.op??100)/100);
       gl.uniform4fv(this.u(P,'uBB'),it.bb||[0,0,1,1]);
+      if(kind===5){gl.uniform1f(this.u(P,'uR'),it.blk);gl.uniform1f(this.u(P,'uRpx'),it.blk*h);gl.uniform2f(this.u(P,'uOff'),it.st,0);}
       gl.drawArrays(gl.TRIANGLES,0,3);}
     gl.disable(gl.BLEND);this.mipify(this.retTex);
     this.base=this.retTex;this.computeBlurs();this.fieldKey='';}
@@ -226,7 +227,7 @@ class Renderer{
     let [rx,ry,rw,rh]=o.region||[0,0,W,H];rx=Math.max(0,Math.min(W-1,rx));ry=Math.max(0,Math.min(H-1,ry));rw=Math.max(1,Math.min(rw,W-rx));rh=Math.max(1,Math.min(rh,H-ry));
     if(cv.width!==rw||cv.height!==rh){cv.width=rw;cv.height=rh;}
     const reg=[rx/W,1-(ry+rh)/H,rw/W,rh/H],fs=Math.min(1,2560/Math.max(W,H));
-    this.updateRetouch(p.retouch);this.setLut(p);this.setLut3(p.lut.id);this.updateField(p,o);
+    this.updateRetouch(p.retouch.concat(privItems(p)));this.setLut(p);this.setLut3(p.lut.id);this.updateField(p,o);
     const dOn=this.updateDisp(p);const pd=STORE.portrait.get(p.portrait.aid),ptT=pd?this.portTex(p.portrait.aid,p.portrait.edits):null;
     /* create every texture before binding starts (creating binds to the active unit and would clobber earlier bindings) */
     if(pd)this.port2Tex(p.portrait.aid,p.portrait.edits);if(p.sky&&p.sky.on&&p.sky.aid&&this.aiTex(p.sky.aid))this.skyTex(p.sky.src);if(p.light&&p.light.on)this.aiTex(p.light.aid);if(o.aiOv&&p.fx.aid)this.aiTex(p.fx.aid);

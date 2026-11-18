@@ -1,5 +1,5 @@
 /* Lumenism service worker: app shell (same-origin) = stale-while-revalidate, AI engines/models/fonts = cache-first forever */
-const VER='lumen-app-v6';
+const VER='lumen-app-v7';
 const PACK_CACHE='lumen-models-v1';
 const MODEL_HOSTS=/^(cdn\.jsdelivr\.net|storage\.googleapis\.com|huggingface\.co|[a-z0-9-]+\.hf\.co|fonts\.googleapis\.com|fonts\.gstatic\.com)$/;
 const SHELL=['./','index.html','manifest.webmanifest','css/app.css','assets/icon-192.png','assets/icon-512.png',

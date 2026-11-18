@@ -42,6 +42,11 @@ void main(){vec2 p=vec2(vUv.x,1.-vUv.y);vec2 asp=vec2(uAspect,1.);float w=0.;vec
       col+=off/ws;}
     w*=uOp;}}
  else if(uKind==3){w=texture(uW,p).r;if(w<=.002)discard;vec2 sp=p+uOff;col=texture(uOrig,vec2(sp.x,1.-sp.y)).rgb;}
+ else if(uKind==5){/* privacy cover: ellipse uBB=(cx,cy,rx,ry); uR=block size (uv-y), uRpx=block px, uOff.x=style */
+  float d=length((p-uBB.xy)/uBB.zw);if(d>1.)discard;float lod=log2(max(1.,uRpx));int st=int(uOff.x+.5);
+  if(st==0){vec2 q=vec2((floor(p.x*uAspect/uR)+.5)*uR/uAspect,(floor(p.y/uR)+.5)*uR);col=textureLod(uOrig,vec2(q.x,1.-q.y),lod).rgb;w=1.;}
+  else if(st==1){col=textureLod(uOrig,vec2(p.x,1.-p.y),lod+1.5).rgb;w=1.-smoothstep(.85,1.,d);}
+  else{col=vec3(.06);w=1.;}}
  else{vec2 q=(p-uBB.xy)/uBB.zw;if(q.x<0.||q.y<0.||q.x>1.||q.y>1.)discard;vec4 t=texture(uW,vec2(q.x,1.-q.y));col=t.rgb;w=t.a;}
  o=vec4(clamp(col,0.,1.),w);}`;
 
