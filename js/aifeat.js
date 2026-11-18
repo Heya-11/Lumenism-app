@@ -76,7 +76,7 @@ async function analyzePortrait(opt={}){const ph=cur;const r=await aiRun(async()=
     if(!faces.length){let cov=0;if(multi&&multi[3]){const d=multi[3].data;for(let i=0;i<d.length;i+=3)cov+=d[i]>.5;cov/=d.length/3;}if(cov<.002){busy(false);throw new Error('얼굴을 찾지 못했어요. ‘못 찾은 얼굴 추가’로 얼굴을 직접 눌러 보세요');}}
     busy(false);return{faces,multi};});if(!r||cur!==ph)return;
   const [w,h]=mapSize(ph);const c=aiCanvas(ph,1024);const d=buildPortraitData(r.faces,r.multi,w,h,c.width/c.height);const aid=uid('p');STORE.portrait.set(aid,d);
-  P().portrait.aid=aid;P().portrait.fw=r.faces.map(()=>100);syncUI();requestRender();commit(`얼굴 분석 (${r.faces.length}명)`);if(opt.quiet)return;
+  P().portrait.aid=aid;P().portrait.fw=r.faces.map(()=>100);P().portrait.pf=[];UI.face=-1;syncUI();requestRender();commit(`얼굴 분석 (${r.faces.length}명)`);if(opt.quiet)return;
   const np=r.faces.filter(f=>f.profile).length;toast(!r.faces.length?'얼굴 윤곽은 못 찾았지만 피부 보정은 쓸 수 있어요. 놓친 얼굴은 ‘못 찾은 얼굴 추가’로 눌러 주세요':`얼굴 ${r.faces.length}개를 찾았어요`+(np?` · 옆모습 ${np}개는 피부 보정만 적용돼요`:''));}
 /* exclusion zones for blemish search: nostrils/nose base, eyes, brows, lips (dilated), drawn from face landmarks */
 function blemishExclusion(pd,fw,fh){const c=document.createElement('canvas');c.width=fw;c.height=fh;const x=c.getContext('2d',{willReadFrequently:true});x.fillStyle='#fff';x.strokeStyle='#fff';x.lineJoin='round';x.lineCap='round';
@@ -110,12 +110,19 @@ function autoBlemish(){const pd=STORE.portrait.get(P().portrait.aid);if(!pd){toa
     const c0=src[i*4],c2=src[i*4+2];if(c2>c0*1.05)continue;
     let mx=true;for(let dy=-2;dy<=2&&mx;dy++)for(let dx=-2;dx<=2;dx++){if(!dx&&!dy)continue;if(box(x+dx,y+dy)-L[i+dy*fw+dx]>d){mx=false;break;}}if(mx)cand.push([d,x,y]);}
   cand.sort((a,b)=>b[0]-a[0]);const pick=[];for(const c of cand){if(pick.length>=maxN)break;if(pick.some(p=>Math.hypot(p[1]-c[1],p[2]-c[2])<rb*2))continue;
-    if((fwt[faceOf(c[1],c[2])]??100)<=0)continue;if(!blobOK(c[1],c[2],c[0]))continue;pick.push(c);}
+    {const fi=faceOf(c[1],c[2]);if((fwt[fi]??100)<=0)continue;if(UI.face>=0&&fi!==UI.face)continue;}if(!blobOK(c[1],c[2],c[0]))continue;pick.push(c);}
   if(!pick.length){toast('지울 만한 잡티를 찾지 못했어요');return;}
   pick.forEach(([,x,y])=>{const r=+(rb*1.1/fh).toFixed(5),d=[rnd4(x/fw),rnd4(y/fh)];P().retouch.push({id:uid('r'),type:'heal',d,s:findSource(d,r),r,f:60,op:100});});
   syncUI();requestRender();commit(`잡티 자동 제거 (${pick.length}곳)`);toast(`잡티 ${pick.length}곳을 지웠어요. 리터칭 탭에서 하나씩 조정할 수 있어요`);}
 /* ---- liquify (portrait tool pointer) ---- */
-function portDown(mx,my){if(UI.pe.on)return peDown(mx,my);const m=UI.liq.mode;if(m==='off')return null;const uv=screenToSrc(mx,my);
+/* portrait tool with no brush mode: tap a face to select it (drag still pans) */
+function faceTapAct(mx,my){const pd=STORE.portrait.get(P().portrait.aid);if(!pd||pd.faces.length<2)return null;const v0=[view.x,view.y],s0=[mx,my];let moved=false;
+  return{move(x,y){if(Math.hypot(x-s0[0],y-s0[1])>6)moved=true;if(moved){view.x=v0[0]+x-s0[0];view.y=v0[1]+y-s0[1];view.fit=false;applyView();}},
+    up(){if(moved)return;const uv=screenToSrc(s0[0],s0[1]);let hit=-1;pd.faces.forEach((f,i)=>{if(uv[0]>f.box[0]&&uv[0]<f.box[2]&&uv[1]>f.box[1]&&uv[1]<f.box[3])hit=i;});
+      if(hit<0)return;selectFace(UI.face===hit?-1:hit);}};}
+function selectFace(i){UI.face=i;syncUI();drawOverlay();if(i>=0)toast(`얼굴 ${i+1}만 따로 보정해요. ‘전체’를 누르면 모든 얼굴 설정으로 돌아가요`);}
+function clearFaceOverrides(){const po=P().portrait;if(UI.face<0||!po.pf||!po.pf[UI.face])return;po.pf[UI.face]=null;syncUI();requestRender();commit(`얼굴 ${UI.face+1} 개별 설정 지우기`);}
+function portDown(mx,my){if(UI.pe.on)return peDown(mx,my);const m=UI.liq.mode;if(m==='off')return faceTapAct(mx,my);const uv=screenToSrc(mx,my);
   const st={m,r:+(UI.liq.size/(view.s*R.last.h)).toFixed(5),s:+(UI.liq.str/100*UI.sens).toFixed(3),p:[uv.map(rnd4)]};P().liquify.push(st);requestRender();
   let sm=uv.slice(),last=uv.slice();
   /* bloat/pucker/restore: grow at a steady rate while the finger rests (not per jittery move event) */
@@ -145,9 +152,9 @@ function peToggle(on){UI.pe.on=on??!UI.pe.on;if(UI.pe.on)UI.liq.mode='off';syncU
   if(UI.pe.on)toast('색으로 표시된 곳이 적용 범위예요. '+(MB.touch?'손가락으로':'드래그해서')+' 칠해서 더하거나 지우세요');}
 function peReset(){const c=UI.pe.c,E=P().portrait.edits||[];const n=E.length;P().portrait.edits=E.filter(s=>s.c!==c);if(P().portrait.edits.length!==n){requestRender();commit(`범위 다듬기 초기화: ${PE_CH[c][0]}`);}}
 function portraitOverlay(){let s='';const pd=STORE.portrait.get(P().portrait.aid);
-  if(pd)pd.faces.forEach((f,i)=>{const a=srcToScreen([f.box[0],f.box[1]]),b=srcToScreen([f.box[2],f.box[3]]);const x0=Math.min(a[0],b[0]),y0=Math.min(a[1],b[1]);const w=((P().portrait.fw||[])[i]??100);
-    s+=`<rect x="${x0}" y="${y0}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="none" stroke="rgba(255,255,255,${w>0?.4:.15})" stroke-dasharray="4 4"/>`;
-    if(pd.faces.length>1)s+=`<rect x="${x0}" y="${y0-20}" width="${w===100?22:56}" height="18" rx="4" fill="rgba(0,0,0,.6)"/><text x="${x0+6}" y="${y0-6}" fill="#fff" font-size="12" font-weight="600">${i+1}${w===100?'':' · '+w+'%'}</text>`;});
+  if(pd)pd.faces.forEach((f,i)=>{const a=srcToScreen([f.box[0],f.box[1]]),b=srcToScreen([f.box[2],f.box[3]]);const x0=Math.min(a[0],b[0]),y0=Math.min(a[1],b[1]);const w=((P().portrait.fw||[])[i]??100),sel=UI.face===i,own=!!(P().portrait.pf||[])[i];
+    s+=`<rect x="${x0}" y="${y0}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="none" stroke="${sel?'#5aa0ff':`rgba(255,255,255,${w>0?.4:.15})`}" stroke-width="${sel?2:1}" stroke-dasharray="${sel?'':'4 4'}"/>`;
+    if(pd.faces.length>1){const t=`${i+1}${own?' 개별':''}${w===100?'':' · '+w+'%'}`;s+=`<rect x="${x0}" y="${y0-20}" width="${10+t.length*7.5}" height="18" rx="4" fill="${sel?'#2d6fd0':'rgba(0,0,0,.6)'}"/><text x="${x0+6}" y="${y0-6}" fill="#fff" font-size="12" font-weight="600">${t}</text>`;}});
   if(UI.pe.on&&hoverPos&&!UI.space)s+=`<circle cx="${hoverPos[0]}" cy="${hoverPos[1]}" r="${UI.pe.size}" fill="none" stroke="${UI.pe.m==='add'?'#fff':'#ff8a8a'}" stroke-width="1.2" stroke-dasharray="${UI.pe.m==='add'?'':'4 3'}"/>`;
   else if(UI.liq.mode!=='off'&&hoverPos&&!UI.space)s+=`<circle cx="${hoverPos[0]}" cy="${hoverPos[1]}" r="${UI.liq.size}" fill="none" stroke="#fff" stroke-width="1.2"/><circle cx="${hoverPos[0]}" cy="${hoverPos[1]}" r="2" fill="#fff"/>`;
   return s;}

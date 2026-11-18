@@ -78,7 +78,7 @@ uniform mat3 uMix;
 uniform vec4 uPCt[4],uPCa[4];uniform float uPCRest;uniform int uPCn;
 uniform int uLut3On;uniform float uLut3Amt,uLut3Size;
 uniform sampler2D uDisp,uPort;uniform int uDispOn,uPortOn;uniform vec4 uPA,uPB;
-uniform sampler2D uPort2,uSky,uSkyM,uRel,uOvF;uniform vec4 uMK;uniform vec2 uMH;uniform vec4 uFC[8];uniform float uFW[8];uniform int uFN;
+uniform sampler2D uPort2,uSky,uSkyM,uRel,uOvF;uniform vec4 uMK;uniform vec2 uMH;uniform vec4 uFD[64];uniform int uFN;
 uniform int uSkyOn,uRelOn,uAIOv,uOvFT,uOvSel;uniform vec4 uSkyT,uSkyP;uniform vec3 uSkyTint;uniform float uSkyL;uniform vec4 uRelP;uniform vec3 uRelL,uRelC;uniform vec2 uRelTx,uOvFP;
 `+COMMON+`
 const float CEN[8]=float[8](0.,30./360.,60./360.,120./360.,180./360.,240./360.,270./360.,300./360.);
@@ -92,7 +92,9 @@ vec2 lens(vec2 uv){if(uDistort==0.)return uv;vec2 q=(uv-.5)*vec2(uSrcAspect,1.);
   float k=uDistort*.45;return .5+(uv-.5)*(1.+k*rn)/max(1.,1.+k);}
 vec3 samp(vec2 uv){if(uCA==0.)return texture(uTex,uv).rgb;vec2 d=uv-.5;float s=uCA*.004;
   return vec3(texture(uTex,.5+d*(1.+s)).r,texture(uTex,uv).g,texture(uTex,.5+d*(1.-s)).b);}
-float faceWt(vec2 tl){if(uFN==0)return 1.;float bd=1e9,w=1.;for(int i=0;i<8;i++){if(i>=uFN)break;vec2 d=(tl-uFC[i].xy)*vec2(uSrcAspect,1.);float dd=dot(d,d);if(dd<bd){bd=dd;w=uFW[i];}}return w;}
+/* per-face table, 4 vec4 per face: A=(smooth,keep,red,bright) B=(eyes,iris,teeth,strength) M=(lip,blush,brow,dark) H=(lipH,blushH,cx,cy) */
+int faceIdx(vec2 tl){int bi=-1;float bd=1e9;for(int i=0;i<16;i++){if(i>=uFN)break;vec2 d=(tl-uFD[i*4+3].zw)*vec2(uSrcAspect,1.);float dd=dot(d,d);if(dd<bd){bd=dd;bi=i;}}return bi;}
+float faceWt(vec2 tl){int i=faceIdx(tl);return i<0?1.:uFD[i*4+1].w;}
 vec3 aiOverlay(vec3 c,vec2 tl){vec4 acc=vec4(0.);
  if(uOvSel>0&&uPortOn==1){vec4 a=texture(uPort,tl),b=texture(uPort2,tl);float v=uOvSel==1?a.r:uOvSel==2?a.g:uOvSel==3?a.b:uOvSel==4?b.r:uOvSel==5?b.g:uOvSel==6?b.b:b.a;
   return mix(c*.7,mix(c,vec3(1.,.3,.7),.6),clamp(v,0.,1.));}
@@ -118,24 +120,26 @@ void main(){
   src=mix(src,acc/ws,clamp(uLNR*1.3,0.,1.));}
  vec3 midc=texture(uMid,duv).rgb;
  vec2 tl=vec2(duv.x,1.-duv.y);float skyM=0.;
- if(uPortOn==1){vec4 pm=texture(uPort,tl);float fwt=faceWt(tl);pm*=min(fwt,1.5);float sk=min(pm.r,1.);
-  if(sk>.01&&uPA.x>0.){vec2 rr=t*uPB.w;vec3 acc=vec3(0.),accL=vec3(0.);float ws=0.;float Lc0=luma(src);
+ if(uPortOn==1){vec4 PA=uPA,PB=uPB,MK=uMK;vec2 MH=uMH;float fwt=1.;int fi=faceIdx(tl);
+  if(fi>=0){PA=uFD[fi*4];vec4 fb=uFD[fi*4+1];PB=vec4(fb.xyz,uPB.w);fwt=fb.w;MK=uFD[fi*4+2];MH=uFD[fi*4+3].xy;}
+  vec4 pm=texture(uPort,tl);pm*=min(fwt,1.5);float sk=min(pm.r,1.);
+  if(sk>.01&&PA.x>0.){vec2 rr=t*PB.w;vec3 acc=vec3(0.),accL=vec3(0.);float ws=0.;float Lc0=luma(src);
    for(int i=0;i<20;i++){float fi=float(i)+.5;float a=fi*2.39996;float r=sqrt(fi/20.);vec3 s=texture(uTex,duv+vec2(cos(a),sin(a))*r*rr).rgb;
     float dl=luma(s)-Lc0;float w=exp(-dl*dl/(2.*.05*.05));acc+=s*w;ws+=w;accL+=s;}
-   vec3 sm=(acc+src)/(ws+1.);vec3 lpf=(accL+src)/21.;src=mix(src,sm+(src-lpf)*uPA.y,clamp(uPA.x,0.,1.)*sk);}
-  if(sk>.01&&uPA.z>0.){vec3 hh=rgb2hsl(clamp(src,0.,1.));float rw=1.-smoothstep(.03,.09,hueDist(hh.x,.0));
-   hh.y*=1.-uPA.z*.45*rw*sk;hh.x=fract(hh.x+.015*rw*uPA.z*sk);src=hsl2rgb(hh);}
-  if(sk>.01&&uPA.w!=0.)src=mix(src,1.-(1.-src)*(1.-.22*uPA.w),sk);
-  if(pm.g>.01&&uPB.x>0.){float L=luma(src);float sat=max(src.r,max(src.g,src.b))-min(src.r,min(src.g,src.b));
-   float wh=smoothstep(.3,.65,L)*(1.-smoothstep(.12,.3,sat));src=mix(src,min(vec3(1.),src*1.2+.04),uPB.x*pm.g*wh);}
-  if(pm.a>.01&&uPB.y>0.){src+=(src-midc)*uPB.y*1.6*pm.a;src=mix(src,(src-.5)*1.12+.5,uPB.y*.5*pm.a);}
-  if(pm.b>.01&&uPB.z>0.){vec3 hh=rgb2hsl(clamp(src,0.,1.));float yel=1.-smoothstep(.04,.1,hueDist(hh.x,.13));float br=smoothstep(.22,.5,hh.z);
-   float w=uPB.z*pm.b*br;hh.y*=1.-w*(.75*yel+.25);hh.z=min(1.,hh.z+.07*w);src=hsl2rgb(hh);}
+   vec3 sm=(acc+src)/(ws+1.);vec3 lpf=(accL+src)/21.;src=mix(src,sm+(src-lpf)*PA.y,clamp(PA.x,0.,1.)*sk);}
+  if(sk>.01&&PA.z>0.){vec3 hh=rgb2hsl(clamp(src,0.,1.));float rw=1.-smoothstep(.03,.09,hueDist(hh.x,.0));
+   hh.y*=1.-PA.z*.45*rw*sk;hh.x=fract(hh.x+.015*rw*PA.z*sk);src=hsl2rgb(hh);}
+  if(sk>.01&&PA.w!=0.)src=mix(src,1.-(1.-src)*(1.-.22*PA.w),sk);
+  if(pm.g>.01&&PB.x>0.){float L=luma(src);float sat=max(src.r,max(src.g,src.b))-min(src.r,min(src.g,src.b));
+   float wh=smoothstep(.3,.65,L)*(1.-smoothstep(.12,.3,sat));src=mix(src,min(vec3(1.),src*1.2+.04),PB.x*pm.g*wh);}
+  if(pm.a>.01&&PB.y>0.){src+=(src-midc)*PB.y*1.6*pm.a;src=mix(src,(src-.5)*1.12+.5,PB.y*.5*pm.a);}
+  if(pm.b>.01&&PB.z>0.){vec3 hh=rgb2hsl(clamp(src,0.,1.));float yel=1.-smoothstep(.04,.1,hueDist(hh.x,.13));float br=smoothstep(.22,.5,hh.z);
+   float w=PB.z*pm.b*br;hh.y*=1.-w*(.75*yel+.25);hh.z=min(1.,hh.z+.07*w);src=hsl2rgb(hh);}
   vec4 p2=texture(uPort2,tl)*min(fwt,1.5);
-  if(p2.r>.01&&uMK.x>0.){vec3 hh=rgb2hsl(clamp(src,0.,1.));vec3 tg=hsl2rgb(vec3(uMH.x,clamp(hh.y*.4+.5,0.,1.),clamp(hh.z*.92,0.,1.)));src=mix(src,tg,clamp(uMK.x*p2.r*.75,0.,1.));}
-  if(p2.g>.01&&uMK.y>0.){vec3 bc=hsl2rgb(vec3(uMH.y,.7,.62));src=mix(src,src*mix(vec3(1.),bc*1.35,.55),clamp(uMK.y*p2.g*.65,0.,1.));}
-  if(p2.b>.01&&uMK.z!=0.){float k=uMK.z*p2.b;src=k>0.?mix(src,src*src*.9,clamp(k*.75,0.,1.)):mix(src,1.-(1.-src)*.8,clamp(-k*.6,0.,1.));}
-  if(p2.a>.01&&uMK.w>0.){float k=clamp(uMK.w*p2.a,0.,1.);vec3 hh=rgb2hsl(clamp(src,0.,1.));float lm=luma(midc);
+  if(p2.r>.01&&MK.x>0.){vec3 hh=rgb2hsl(clamp(src,0.,1.));vec3 tg=hsl2rgb(vec3(MH.x,clamp(hh.y*.4+.5,0.,1.),clamp(hh.z*.92,0.,1.)));src=mix(src,tg,clamp(MK.x*p2.r*.75,0.,1.));}
+  if(p2.g>.01&&MK.y>0.){vec3 bc=hsl2rgb(vec3(MH.y,.7,.62));src=mix(src,src*mix(vec3(1.),bc*1.35,.55),clamp(MK.y*p2.g*.65,0.,1.));}
+  if(p2.b>.01&&MK.z!=0.){float k=MK.z*p2.b;src=k>0.?mix(src,src*src*.9,clamp(k*.75,0.,1.)):mix(src,1.-(1.-src)*.8,clamp(-k*.6,0.,1.));}
+  if(p2.a>.01&&MK.w>0.){float k=clamp(MK.w*p2.a,0.,1.);vec3 hh=rgb2hsl(clamp(src,0.,1.));float lm=luma(midc);
    float pur=1.-smoothstep(.05,.2,min(hueDist(hh.x,.78),hueDist(hh.x,.62)));hh.y*=1.-k*(.25+.45*pur);hh.z=mix(hh.z,hh.z+(1.-hh.z)*.2,k);src=hsl2rgb(hh);}}
  if(uSkyOn==1){float m=texture(uSkyM,tl).r;float Ls=luma(src);float edge=1.-abs(2.*m-1.);
   m*=mix(1.,smoothstep(uSkyL*.5,uSkyL*.85,Ls),edge*uSkyP.w);m=clamp(m*uSkyP.x,0.,1.);skyM=m;

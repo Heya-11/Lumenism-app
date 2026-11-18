@@ -264,8 +264,10 @@ class Renderer{
     gl.uniform4f(this.u(D,'uPB'),po.eyes/100,po.iris/100,po.teeth/100,pd?Math.max(1.5,pd.faceW*h*.018):2);
     const pt2=pd?this.port2Tex(p.portrait.aid,p.portrait.edits):null;this.bindTex(D,'uPort2',11,pt2||this.empty);
     gl.uniform4f(this.u(D,'uMK'),(po.lip||0)/100,(po.blush||0)/100,(po.brow||0)/100,(po.dark||0)/100);gl.uniform2f(this.u(D,'uMH'),(po.lipH??352)/360,(po.blushH??6)/360);
-    const fc=new Float32Array(32),fwa=new Float32Array(8);let fn=0;if(pd)pd.faces.slice(0,8).forEach((q,i)=>{fc.set([(q.box[0]+q.box[2])/2,(q.box[1]+q.box[3])/2,0,0],i*4);fwa[i]=((po.fw||[])[i]??100)/100;fn++;});
-    gl.uniform4fv(this.u(D,'uFC'),fc);gl.uniform1fv(this.u(D,'uFW'),fwa);i1('uFN',fn);
+    const fd=new Float32Array(256);let fn=0;if(pd)pd.faces.slice(0,16).forEach((q,i)=>{const v=k=>portVal(po,i,k);
+      fd.set([v('smooth')/100,v('keep')/100,v('red')/100,v('bright')/100, v('eyes')/100,v('iris')/100,v('teeth')/100,((po.fw||[])[i]??100)/100,
+        (v('lip')||0)/100,(v('blush')||0)/100,(v('brow')||0)/100,(v('dark')||0)/100, (v('lipH')??352)/360,(v('blushH')??6)/360,(q.box[0]+q.box[2])/2,(q.box[1]+q.box[3])/2],i*16);fn++;});
+    gl.uniform4fv(this.u(D,'uFD'),fd);i1('uFN',fn);
     const sk=p.sky||{},skM=sk.on&&sk.aid?this.aiTex(sk.aid):null,skT=skM?this.skyTex(sk.src):null;
     i1('uSkyOn',skM&&skT?1:0);this.bindTex(D,'uSkyM',13,skM||this.empty);this.bindTex(D,'uSky',12,skT?skT.tex:this.empty);
     if(skM&&skT){const pa=w/h,sa=skT.w/skT.h,sc=100/Math.max(50,sk.scale||100);let kx=Math.min(1,pa/sa)*sc,ky=Math.min(1,sa/pa)*sc;

@@ -299,3 +299,5 @@ body.m .empty{padding:0 20px;text-align:center}body.m .empty .tb{margin:6px auto
 .msens{margin:8px 0 4px}.msens>span{display:block;font-size:11px;color:var(--dim);margin-bottom:4px}
 body.m .left .msens{margin:4px 12px 8px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+
+.facechips{flex-wrap:wrap;margin:4px 0 6px}

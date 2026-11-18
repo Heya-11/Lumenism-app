@@ -12,7 +12,7 @@ const LM={
   liris:[468,469,470,471,472],riris:[473,474,475,476,477]};
 /* displacement field (inverse warp) for face reshape + liquify. Returns {w,h,data} in uv units or null */
 function buildDisp(p,faces,aspect){const po=p.portrait||{},L=p.liquify||[];
-  const faceOn=faces&&faces.length&&(po.slim||po.width||po.eye||po.nose||po.smile);
+  const faceOn=faces&&faces.length&&faces.some((_,i)=>['slim','width','eye','nose','smile'].some(k=>portVal(po,i,k)));
   if(!faceOn&&!L.length)return null;
   const long=512,Wd=aspect>=1?long:Math.max(8,Math.round(long*aspect)),Hd=aspect>=1?Math.max(8,Math.round(long/aspect)):long;
   const D=new Float32Array(Wd*Hd*4);
@@ -21,7 +21,7 @@ function buildDisp(p,faces,aspect){const po=p.portrait||{},L=p.liquify||[];
   const push=(cx,cy,r,vx,vy)=>each(cx,cy,r,(i,w)=>{D[i]-=vx*w;D[i+1]-=vy*w;});
   const scale=(cx,cy,r,s)=>each(cx,cy,r,(i,w,dx,dy)=>{D[i]-=dx*s*w;D[i+1]-=dy*s*w;});
   const restore=(cx,cy,r,s)=>each(cx,cy,r,(i,w)=>{const k=Math.max(0,1-w*s);D[i]*=k;D[i+1]*=k;});
-  if(faceOn)faces.forEach((f,fi)=>{if(f.profile)return;const wf=((po.fw||[])[fi]??100)/100;if(wf<=0)return;const pf={slim:po.slim*wf,width:po.width*wf,eye:po.eye*wf,nose:po.nose*wf,smile:po.smile*wf};const P=k=>f.lm[k]?[f.lm[k][0]*Wd,f.lm[k][1]*Hd]:null;const avg=a=>{const v=a.map(P).filter(Boolean);return[v.reduce((s,q)=>s+q[0],0)/v.length,v.reduce((s,q)=>s+q[1],0)/v.length];};
+  if(faceOn)faces.forEach((f,fi)=>{if(f.profile)return;const wf=((po.fw||[])[fi]??100)/100;if(wf<=0)return;const v=k=>portVal(po,fi,k);const pf={slim:v('slim')*wf,width:v('width')*wf,eye:v('eye')*wf,nose:v('nose')*wf,smile:v('smile')*wf};const P=k=>f.lm[k]?[f.lm[k][0]*Wd,f.lm[k][1]*Hd]:null;const avg=a=>{const v=a.map(P).filter(Boolean);return[v.reduce((s,q)=>s+q[0],0)/v.length,v.reduce((s,q)=>s+q[1],0)/v.length];};
     const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);const l=P(234),r=P(454),nose=P(1);if(!l||!r||!nose)return;const fw=dist(l,r);
     if(pf.slim){const s=pf.slim/100;LM.jaw.forEach(k=>{const q=P(k);push(q[0],q[1],fw*.17,(nose[0]-q[0])*.13*s,-fw*.012*s);});}
     if(pf.width){const s=pf.width/100;LM.cheek.forEach(k=>{const q=P(k);push(q[0],q[1],fw*.22,(nose[0]-q[0])*.09*s,0);});}

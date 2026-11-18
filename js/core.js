@@ -13,7 +13,7 @@ function defaults(){return{temp:0,tint:0,exposure:0,contrast:0,highlights:0,shad
   lens:{dist:0,ca:0,defringe:0,vig:0,vigMid:50},
   vig:0,vigMid:50,grain:0,grainSize:25,
   fx:{orton:0,glow:0,glowT:60,hal:0,tilt:0,blur:0,tx:.5,ty:.5,tang:0,tw:12,tf:18,shape:'circle',boost:30,fsharp:0,fdepth:.5,dof:8,aid:null,maskId:null},
-  portrait:{aid:null,smooth:0,keep:50,red:0,bright:0,eyes:0,iris:0,teeth:0,slim:0,width:0,eye:0,nose:0,smile:0,lip:0,lipH:352,blush:0,blushH:6,brow:0,dark:0,fw:[],edits:[]},liquify:[],
+  portrait:{aid:null,smooth:0,keep:50,red:0,bright:0,eyes:0,iris:0,teeth:0,slim:0,width:0,eye:0,nose:0,smile:0,lip:0,lipH:352,blush:0,blushH:6,brow:0,dark:0,fw:[],edits:[],pf:[]},liquify:[],
   sky:{on:false,aid:null,src:'clear',amt:100,fg:50,bright:0,shift:0,scale:100,flip:false,edge:50},light:{on:false,aid:null,amt:50,ang:-45,elev:35,warm:20,amb:20},
   curves:{rgb:ID(),r:ID(),g:ID(),b:ID()},pcurve:{sh:0,dk:0,lt:0,hl:0,s1:25,s2:50,s3:75},
   geo:defGeo(),masks:[],retouch:[],layers:[]};}
@@ -44,7 +44,7 @@ const UI={compare:'off',splitX:.5,clip:false,pick:null,tat:null,hslTab:'H',curve
   straighten:false,guide:false,guideLines:[],pendingCreate:null,pendingMode:'add',showOverlay:true,space:false,
   brush:{size:60,feather:50,flow:60,erase:false,auto:false},
   ret:{mode:'heal',size:40,feather:50,op:100,src:null,off:null,awaitSrc:false,ai:false},
-  liq:{mode:'off',size:80,str:35},pe:{on:false,c:'lip',m:'add',size:30},sens:+(localStorage.getItem('lumen.sens')||1),aiMode:'new',recAI:false,cropSug:null,tagQuery:'',blemSens:50,aiOv:false,stacks:false,openStacks:new Set(),
+  liq:{mode:'off',size:80,str:35},pe:{on:false,c:'lip',m:'add',size:30},face:-1,sens:+(localStorage.getItem('lumen.sens')||1),aiMode:'new',recAI:false,cropSug:null,tagQuery:'',blemSens:50,aiOv:false,stacks:false,openStacks:new Set(),
   batch:{portrait:true,makeup:true,bokeh:true,sky:true,light:true},
   filter:'all',fullPreview:(()=>{try{return localStorage.getItem('darkroom.full')==='1';}catch(e){return false;}})()};
 const EXP_DEF={target:'cur',fmt:'image/jpeg',q:92,size:0,os:0,tpl:'{name}_edit',
@@ -63,8 +63,12 @@ const uid=p=>(p||'i')+Date.now().toString(36)+Math.random().toString(36).slice(2
 function ref(path){let o;const m=path.match(/^(\w+):(.*)$/);
   if(m){o={m:selMask,mc:selComp,r:selRet,l:selLayer,pc:selPC,ui:()=>UI}[m[1]]();path=m[2];}else o=P();
   if(!o)return null;const ks=path.split('.');const last=ks.pop();for(const k of ks){o=o[k];if(o==null)return null;}return[o,last];}
-function getP(path){const r=ref(path);return r?r[0][r[1]]:0;}
-function setP(path,v){const r=ref(path);if(r)r[0][r[1]]=v;}
+const PORT_KEYS=['smooth','keep','red','bright','eyes','iris','teeth','slim','width','eye','nose','smile','lip','lipH','blush','blushH','brow','dark'];
+function portVal(po,i,k){const o=po.pf&&po.pf[i];return o&&o[k]!=null?o[k]:po[k];}
+/* while one face is selected in the portrait panel, portrait sliders read/write that face's own value */
+function faceKey(path){if(UI.face<0||!path.startsWith('portrait.'))return null;const k=path.slice(9);return PORT_KEYS.includes(k)?k:null;}
+function getP(path){const fk=faceKey(path);if(fk&&cur)return portVal(cur.params.portrait,UI.face,fk);const r=ref(path);return r?r[0][r[1]]:0;}
+function setP(path,v){const fk=faceKey(path);if(fk&&cur){const po=cur.params.portrait;if(!Array.isArray(po.pf))po.pf=[];const o=po.pf[UI.face]||(po.pf[UI.face]={});o[fk]=v;return;}const r=ref(path);if(r)r[0][r[1]]=v;}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),2800);}
 function vhint(msg){const h=$('vhint');h.textContent=msg||'';h.style.display=msg?'block':'none';}
 function busy(on,txt){$('busy').classList.toggle('on',!!on);if(txt)$('busyTxt').textContent=txt;}

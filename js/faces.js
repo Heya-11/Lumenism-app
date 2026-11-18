@@ -50,5 +50,5 @@ async function addFaceAt(uv){const ph=cur;let none=false;const f=await aiRun(asy
     busy(false);none=true;return null;});
   if(cur!==ph)return;if(!f){if(none)toast('그 위치에서 얼굴을 찾지 못했어요. 얼굴 한가운데(코 근처)를 눌러 보세요');return;}
   const faces=await aiFaces(ph);if(faces.some(g=>iou(g.box,f.box)>.3)){toast('이미 찾은 얼굴이에요');return;}
-  const keep=(P().portrait.fw||[]).slice();faces.push(f);await analyzePortrait({quiet:true});
-  if(cur===ph){P().portrait.fw=faces.map((_,i)=>keep[i]??100);syncUI();requestRender();toast(`얼굴을 추가했어요 (모두 ${faces.length}명)`+(f.profile?' · 옆모습이라 피부 보정만 적용돼요':''));}}
+  const keep=(P().portrait.fw||[]).slice(),keepPf=clone(P().portrait.pf||[]);faces.push(f);await analyzePortrait({quiet:true});
+  if(cur===ph){P().portrait.fw=faces.map((_,i)=>keep[i]??100);P().portrait.pf=keepPf;syncUI();requestRender();toast(`얼굴을 추가했어요 (모두 ${faces.length}명)`+(f.profile?' · 옆모습이라 피부 보정만 적용돼요':''));}}
