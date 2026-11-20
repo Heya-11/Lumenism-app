@@ -85,7 +85,8 @@ function initMobile(){
   vwp.addEventListener('contextmenu',e=>{if(MB.touch)e.preventDefault();});
 
   /* close the drawer after choosing something that changes the photo */
-  $('left').addEventListener('click',e=>{if(MB.mode==='desk')return;if(e.target.closest('.li,.reccard,.th'))setTimeout(()=>setLib(false),150);});
+  $('left').addEventListener('click',e=>{if(MB.mode==='desk')return;/* 추천(자동) keeps the drawer open: scene analysis, picking a variant and the strength slider all happen there */
+    if(e.target.closest('.li.rec,.recbox'))return;if(e.target.closest('.li,.th'))setTimeout(()=>setLib(false),150);});
 
   window.addEventListener('resize',()=>{clearTimeout(MB.rt);MB.rt=setTimeout(applyLayout,60);});
   try{if(window.viewport&&window.viewport.addEventListener)window.viewport.addEventListener('segmentschange',applyLayout);}catch(e){}
