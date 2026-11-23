@@ -12,7 +12,7 @@ function modeHint(){if(UI.pick)return{addFace:'못 찾은 얼굴의 한가운데
   if(UI.tat)return UI.tat==='hsl'?'바꾸고 싶은 색 위에서 위아래로 드래그하세요':'바꾸고 싶은 밝기 위에서 위아래로 드래그하세요';
   if(tool==='crop'){if(UI.straighten)return'수평선(또는 수직선)을 따라 드래그하세요';if(UI.guide)return`세로·가로 기준선을 따라 선을 그으세요 (${UI.guideLines.length}/4)`;return'';}
   if(tool==='mask'){if(UI.pendingCreate&&UI.pendingCreate!=='brush')return UI.pendingCreate==='linear'?'드래그해서 그라디언트 방향과 길이를 정하세요':'중심에서 바깥쪽으로 드래그하세요';
-    const c=selComp();if(c&&c.type==='brush')return(UI.brush.erase?'지우개':'브러시')+(UI.brush.auto?' (자동 마스크)':'')+' — 칠할 곳을 드래그 · [ ] 크기 · Space+드래그 이동';return'';}
+    const c=selComp();if(c&&c.type==='brush')return(UI.brush.erase?'지우개':'브러시')+(UI.brush.auto?' (자동 마스크)':'')+(MB.touch?' — 한 손가락으로 칠하기 · 두 손가락으로 이동·확대 · 크기는 아래 브러시 슬라이더':' — 칠할 곳을 드래그 · [ ] 크기 · Space+드래그 이동');return'';}
   if(tool==='retouch'){const m=UI.ret.mode;if(m==='stamp')return UI.ret.awaitSrc||!UI.ret.src?'복제할 소스 지점을 클릭하세요 (Alt+클릭)':'칠해서 소스를 복제하세요 · Alt+클릭으로 소스 다시 지정';
     return{heal:'고칠 곳을 클릭하세요 — 주변과 어울리게 자동으로 메워요',clone:'고칠 곳을 클릭하세요 — 다른 곳을 그대로 복사해요',redeye:'눈 중심에서 바깥으로 드래그하세요',fill:'지울 대상을 브러시로 칠하면 주변 내용으로 채워요'}[m];}
   if(UI.pick==='aisubject')return'선택할 피사체를 클릭하세요';
@@ -265,7 +265,12 @@ function pinchStart(){const [a,b]=[...pointers.values()];const r=vw.getBoundingC
   pan={pinch:Math.hypot(a.x-b.x,a.y-b.y),s:view.s,m,vx:view.x,vy:view.y};vw.classList.add('panning');}
 function flushPend(){if(!pend)return;const p=pend;pend=null;clearTimeout(p.t);if(!startAct(p.mx,p.my,p.e)){pan={x:p.cx,y:p.cy,vx:view.x,vy:view.y};vw.classList.add('panning');}}
 let ftap=null;/* touch: 2-finger tap = undo, 3-finger tap = redo */
-vw.addEventListener('pointerdown',e=>{if(!cur||e.target.closest('.empty'))return;try{vw.setPointerCapture(e.pointerId);}catch(_){}pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+/* drop finger records that never got an up/cancel (system back gesture, notification shade, app switch): otherwise every new touch looks like a 2nd finger */
+function resetPointers(){if(pend){clearTimeout(pend.t);pend=null;}if(act){try{act.up();}catch(_){}act=null;}pointers.clear();pan=null;ftap=null;vw.classList.remove('panning');}
+window.addEventListener('blur',resetPointers);document.addEventListener('visibilitychange',()=>{if(document.hidden)resetPointers();});
+vw.addEventListener('pointerdown',e=>{if(!cur||e.target.closest('.empty'))return;
+  if(e.isPrimary&&pointers.size)resetPointers();
+  try{vw.setPointerCapture(e.pointerId);}catch(_){}pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(e.pointerType==='touch'){if(pointers.size===1)ftap={t:performance.now(),n:1,o:new Map([[e.pointerId,[e.clientX,e.clientY]]]),moved:false};else if(ftap){ftap.n=Math.max(ftap.n,pointers.size);ftap.o.set(e.pointerId,[e.clientX,e.clientY]);}}
   const [mx,my]=rel(e);
   if(pointers.size===2){if(pend){clearTimeout(pend.t);pend=null;}if(act){act.up();act=null;}pinchStart();return;}
@@ -292,6 +297,7 @@ const endPtr=e=>{pointers.delete(e.pointerId);
   if(ftap&&pointers.size===0){const f=ftap;ftap=null;if(f.n>=2&&!f.moved&&performance.now()-f.t<380&&e.type==='pointerup'){if(pend){clearTimeout(pend.t);pend=null;}if(act){act.up();act=null;}pan=null;vw.classList.remove('panning');
     if(f.n===2){if(cur.hi>0){gotoHistory(cur.hi-1);toast('실행 취소');}}else if(cur.hi<cur.history.length-1){gotoHistory(cur.hi+1);toast('다시 실행');}return;}}if(pend&&pointers.size===0){const p=pend;flushPend();if(act){const [mx,my]=rel(e);act.move(mx,my);}}if(pan&&pan.pinch&&pointers.size===1){pan=null;}if(act&&pointers.size===0){const a=act;act=null;a.up();}if(pointers.size===0){pan=null;vw.classList.remove('panning');}};
 vw.addEventListener('pointerup',endPtr);vw.addEventListener('pointercancel',endPtr);
+vw.addEventListener('lostpointercapture',e=>{if(pointers.has(e.pointerId))endPtr(e);});
 vw.addEventListener('pointerleave',()=>{hoverPos=null;if(tool==='mask'||tool==='retouch'||tool==='portrait')drawOverlay();});
 vw.addEventListener('dblclick',e=>{if(!cur||tool!=='edit'||UI.tat||e.target.closest('.empty'))return;const [mx,my]=rel(e);toggleZoom(mx,my);});
 vw.addEventListener('wheel',e=>{if(!cur)return;e.preventDefault();const [mx,my]=rel(e);zoomAt(mx,my,view.s*Math.exp(-e.deltaY*(e.ctrlKey?0.01:0.0018)));},{passive:false});

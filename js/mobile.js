@@ -91,7 +91,7 @@ function initMobile(){
   window.addEventListener('resize',()=>{clearTimeout(MB.rt);MB.rt=setTimeout(applyLayout,60);});
   try{if(window.viewport&&window.viewport.addEventListener)window.viewport.addEventListener('segmentschange',applyLayout);}catch(e){}
   try{if(navigator.devicePosture)navigator.devicePosture.addEventListener('change',applyLayout);}catch(e){}
-  if(MB.touch){$('filmHint').textContent='길게 눌러 여러 장 선택';
+  if(MB.touch){$('filmHint').textContent='길게 눌러 여러 장 선택';if(UI.brush.size===60)UI.brush.size=32;
     /* Android: image/* only -> system photo picker (gallery). RAW needs the file browser, so it gets its own input/button */
     const f=$('file'),raw=f.cloneNode();raw.id='fileRaw';raw.accept=f.accept;f.accept='image/*';f.after(raw);raw.onchange=e=>{addFiles(e.target.files);e.target.value='';};
     const rb=el('button','tb','RAW · 파일에서 열기');rb.id='bOpenRaw';rb.onclick=()=>raw.click();$('bOpen2').after(rb);$('bOpen2').textContent='갤러리에서 사진 선택';
