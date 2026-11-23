@@ -15,7 +15,7 @@ function applyLayout(){const L=layoutMode(),b=document.body;MB.mode=L.m;
   if(L.m==='flex'){const top=L.sg?L.sg[0].bottom:Math.round(innerHeight*.5),gap=L.sg?Math.max(0,L.sg[1].top-L.sg[0].bottom):0;
     b.style.setProperty('--seg1',top+'px');b.style.setProperty('--hinge',gap+'px');}
   const tools=$('tools'),nav=$('mnav');if(L.m==='phone'){if(tools.parentElement!==nav)nav.appendChild(tools);}else if(tools.parentElement!==$('right'))$('right').insertBefore(tools,$('right').querySelector('.tpanel'));
-  setSheet(MB.sheet,true);const fo=L.m==='tab'?(MB.filmTab??!L.short):L.m==='phone'&&MB.film;b.classList.toggle('m-film',!!fo);const bf=$('bFilm');if(bf)bf.classList.toggle('on',!!fo);
+  setSheet(MB.sheet,true);const fo=L.m==='tab'?(MB.filmTab??!L.short):(L.m==='phone'||L.m==='flex')&&MB.film;b.classList.toggle('m-film',!!fo);const bf=$('bFilm');if(bf)bf.classList.toggle('on',!!fo);
   if(L.m==='desk')setLib(false);}
 function setSheet(s,quiet){MB.sheet=s;const b=document.body;
   if(MB.mode!=='phone'){b.style.removeProperty('--sh');return;}

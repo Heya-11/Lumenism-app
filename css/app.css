@@ -249,13 +249,13 @@ body.m-tab .right .tools{position:sticky;top:0;z-index:4;background:var(--panel)
 body.m-tab #hist{height:72px}
 
 /* ---- FLEX (half folded, hinge horizontal: photo on top, controls on the bottom half) ---- */
-body.m-flex .app{grid-template-columns:100%;grid-template-rows:44px calc(var(--seg1,50dvh) - 44px) var(--hinge,0px) 1fr;grid-template-areas:"top" "view" "." "right"}
+body.m-flex .app{grid-template-columns:100%;grid-template-rows:44px calc(var(--seg1,50dvh) - 44px) var(--hinge,0px) auto 1fr;grid-template-areas:"top" "view" "." "film" "right"}
+body.m-flex .film{grid-area:film;border-bottom:1px solid var(--line)}
 body.m-flex .right{border:0;border-top:1px solid var(--line)}
 body.m-flex .right .histwrap{display:none}
 body.m-flex .right .tools{position:sticky;top:0;z-index:4;background:var(--panel)}
-body.m-flex .right .tpanel.on{columns:2 300px;column-gap:18px}
+body.m-flex .right #pEdit.tpanel.on{columns:2 300px;column-gap:18px}
 body.m-flex .right .tpanel.on>.sec{break-inside:avoid}
-body.m-flex .film{display:none!important}
 
 /* ---- touch sizing ---- */
 body.m-touch{font-size:13px}

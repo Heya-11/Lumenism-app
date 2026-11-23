@@ -271,7 +271,7 @@ class Renderer{
     gl.uniform4fv(this.u(D,'uFD'),fd);i1('uFN',fn);
     const sk=p.sky||{},skM=sk.on&&sk.aid?this.aiTex(sk.aid):null,skT=skM?this.skyTex(sk.src):null;
     i1('uSkyOn',skM&&skT?1:0);this.bindTex(D,'uSkyM',13,skM||this.empty);this.bindTex(D,'uSky',12,skT?skT.tex:this.empty);
-    if(skM&&skT){const pa=w/h,sa=skT.w/skT.h,sc=100/Math.max(50,sk.scale||100);let kx=Math.min(1,pa/sa)*sc,ky=Math.min(1,sa/pa)*sc;
+    if(skM&&skT){const pa=w/h,sa=skT.w/skT.h,sc=100/Math.max(50,sk.scale||100,100+Math.abs(sk.shift||0)*.5);let kx=Math.min(1,pa/sa)*sc,ky=Math.min(1,sa/pa)*sc;
       const ox=.5-.5*kx,oy=.5-.5*ky+(sk.shift||0)/100*(1-ky)*.5;if(sk.flip){kx=-kx;}
       gl.uniform4f(this.u(D,'uSkyT'),kx,ky,sk.flip?.5+.5*Math.abs(kx):ox,oy);
       const old=this.skyOld(sk.aid),nw=skT.avg,lo=luma3(old),ln=luma3(nw);const fgk=(sk.fg??50)/100;

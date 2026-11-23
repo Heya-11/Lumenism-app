@@ -13,7 +13,9 @@ function ensureRenderer(){if(R)return true;try{R=new Renderer(glc);}catch(e){toa
 function makePhoto(o){const ph=Object.assign({uid:++uidN,params:defaults(),history:[{label:o.label||'가져오기',state:defaults()}],hi:0,sel:null,selComp:null,selRet:null,selLayer:null,selPC:0,
   snaps:[],rating:0,flag:0,selected:false},o);if(o.params)ph.history=[{label:o.label||'가져오기',state:clone(o.params)}];return ph;}
 async function addFiles(files){
-  files=[...files].filter(f=>f.type.startsWith('image/')||RAW_RE.test(f.name)||/\.(jpe?g|png|webp|gif|bmp|avif|heic)$/i.test(f.name));if(!files.length)return;
+  const all=[...files];files=all.filter(f=>f.type.startsWith('image/')||RAW_RE.test(f.name)||/\.(jpe?g|png|webp|gif|bmp|avif|heic)$/i.test(f.name));
+  const skipped=all.filter(f=>!files.includes(f));if(skipped.length)toast(`사진이 아니라서 열지 않았어요: ${skipped.slice(0,3).map(f=>f.name).join(', ')}${skipped.length>3?` 외 ${skipped.length-3}개`:''}`);
+  if(!files.length)return;
   if(!ensureRenderer())return;busy(true,'불러오는 중…');let first=null;const fails=[];let rawMsg='';
   for(const f of files){try{const {src,raw,exif}=await loadSource(f);const w=src.width,h=src.height;
       const prev=drawScaled(src,w,h,Math.min(PREV_MAX,R.maxTex));const th=drawScaled(src,w,h,200).toDataURL('image/jpeg',.75);
