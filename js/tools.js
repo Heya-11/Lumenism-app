@@ -250,7 +250,8 @@ function drawOverlay(){if(!cur||!R||!R.last){ov.innerHTML='';return;}let s='';co
       if(c.type==='radial'){const f=1-c.feather/100,pts=[],pin=[];for(let i=0;i<=72;i++){const t=i/72*Math.PI*2;pts.push(srcToScreen([c.c[0]+Math.cos(t)*c.rx/asp,c.c[1]+Math.sin(t)*c.ry]).join(','));
           pin.push(srcToScreen([c.c[0]+Math.cos(t)*c.rx*f/asp,c.c[1]+Math.sin(t)*c.ry*f]).join(','));}
         s+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${st}" stroke-width="1.3"/>`;if(sel)s+=`<polyline points="${pin.join(' ')}" fill="none" stroke="rgba(255,255,255,.5)" stroke-dasharray="4 4"/>`;}});
-    if(m)m.comps.forEach(c=>{if(c.type==='outline'&&c===selComp()&&c.pts)s+=`<polygon points="${c.pts.map(p=>srcToScreen(p).join(',')).join(' ')}" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.3" stroke-dasharray="5 4"/>`;});
+    if(m)m.comps.forEach(c=>{if(c.type!=='outline'||c!==selComp()||!c.pts)return;const sh=olShape('m'+c.id,R.olT&&R.olT.get(c.id),c.pts,asp);
+      s+=sh?olSvg(sh,srcToScreen):`<polygon points="${c.pts.map(p=>srcToScreen(p).join(',')).join(' ')}" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.3" stroke-dasharray="5 4"/>`;});
     const c=selComp();if(c)compHandles(c).forEach(h=>{const [x,y]=srcToScreen(h.uv);const big=h.k==='mid'||h.k==='c';s+=`<circle cx="${x}" cy="${y}" r="${big?6:5}" fill="${big?'#5aa2ff':'#fff'}" stroke="#000" stroke-width="1.2"/>`;});
     cur.params.masks.forEach(o=>{if(o===m||!o.comps[0])return;const pin=compPin(o.comps[0]);if(!pin)return;const [x,y]=srcToScreen(pin);s+=`<circle cx="${x}" cy="${y}" r="6" fill="#222" stroke="#fff" stroke-width="1.5"/>`;});
     if(c&&c.type==='brush'&&hoverPos&&!UI.space&&!UI.pendingCreate){const r=UI.brush.size,ri=r*(1-UI.brush.feather/100);
@@ -267,10 +268,10 @@ function drawOverlay(){if(!cur||!R||!R.last){ov.innerHTML='';return;}let s='';co
     if(hoverPos&&!UI.space&&UI.ret.mode!=='redeye'){s+=`<circle cx="${hoverPos[0]}" cy="${hoverPos[1]}" r="${UI.ret.size}" fill="none" stroke="#fff" stroke-width="1.2"/>`;
       if(UI.ret.mode==='stamp'&&UI.ret.off){const u=screenToSrc(hoverPos[0],hoverPos[1]);const S=srcToScreen([u[0]+UI.ret.off[0],u[1]+UI.ret.off[1]]);s+=`<path d="M${S[0]-8} ${S[1]}H${S[0]+8}M${S[0]} ${S[1]-8}V${S[1]+8}" stroke="#fff" stroke-width="1.5"/>`;}}}
   else if(tool==='portrait')s+=portraitOverlay();
-  else if(tool==='layers'){const Lr=selLayer();if(Lr&&Lr.visible&&(Lr.type==='image'||Lr.type==='text')){const cs=layerCorners(Lr);if(cs)s+=`<polygon points="${cs.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#5aa2ff" stroke-width="1.5" stroke-dasharray="6 4"/>`;}}
+  else if(tool==='layers'){if(UI.baseSel&&!UI.olDraft)s+=olSvg(baseCutShape(),srcToScreen);s+=layerCutAnimSvg();const Lr=selLayer();if(Lr&&Lr.visible&&(Lr.type==='image'||Lr.type==='text')){const cs=layerCorners(Lr);if(cs)s+=`<polygon points="${cs.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#5aa2ff" stroke-width="1.5" stroke-dasharray="6 4"/>`;}}
   if(UI.compare==='split'&&tool!=='crop'){const x=view.x+UI.splitX*glc.width*view.s,y0=Math.max(0,view.y),y1=Math.min(H,view.y+glc.height*view.s);
     s+=`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y1}" stroke="#fff" stroke-width="1.5"/><circle cx="${x}" cy="${(y0+y1)/2}" r="9" fill="#fff"/><path d="M${x-4} ${(y0+y1)/2}l-3 0M${x+4} ${(y0+y1)/2}l3 0" stroke="#000"/>`;
-    s+=`<text x="${x-10}" y="${y0+20}" text-anchor="end">보정 전</text><text x="${x+10}" y="${y0+20}">보정 후</text>`;}
+    {const ty=UI.fsv?y1-16:y0+20;s+=`<text x="${x-10}" y="${ty}" text-anchor="end">보정 전</text><text x="${x+10}" y="${ty}">보정 후</text>`;}}
   if(UI.olDraft&&UI.olDraft.length>1){const pp=UI.olDraft.map(p=>p.join(',')).join(' ');s+=`<polyline points="${pp}" fill="none" stroke="#000" stroke-width="3.5" stroke-linejoin="round" opacity=".55"/><polyline points="${pp}" fill="none" stroke="#ffd34d" stroke-width="1.8" stroke-linejoin="round"/><line x1="${UI.olDraft[UI.olDraft.length-1].join('" y1="')}" x2="${UI.olDraft[0][0]}" y2="${UI.olDraft[0][1]}" stroke="#ffd34d" stroke-width="1.2" stroke-dasharray="4 4"/>`;}
   ov.innerHTML=s;}
 

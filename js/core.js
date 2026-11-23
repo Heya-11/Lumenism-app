@@ -43,7 +43,7 @@ let R=null;const glc=document.getElementById('gl');
 const photos=[];let cur=null,uidN=0,clipboard=null,tool='edit';
 const UI={compare:'off',splitX:.5,clip:false,pick:null,tat:null,hslTab:'H',curveTab:'point',curveCh:'rgb',mixOut:'r',
   straighten:false,guide:false,guideLines:[],pendingCreate:null,pendingMode:'add',showOverlay:true,space:false,
-  brush:{size:60,feather:50,flow:60,erase:false,auto:false},outline:{snap:70,ai:false},layerCut:false,olDraft:null,
+  brush:{size:60,feather:50,flow:60,erase:false,auto:false},outline:(()=>{try{return Object.assign({snap:70,ai:false},JSON.parse(localStorage.getItem('lumen.outline')||'{}'));}catch(e){return{snap:70,ai:false};}})(),layerCut:false,olDraft:null,
   ret:{mode:'heal',size:40,feather:50,op:100,src:null,off:null,awaitSrc:false,ai:false},
   liq:{mode:'off',size:80,str:35},pe:{on:false,c:'lip',m:'add',size:30},face:-1,pv:false,sens:+(localStorage.getItem('lumen.sens')||1),aiMode:'new',recAI:false,cropSug:null,tagQuery:'',blemSens:50,aiOv:false,stacks:false,openStacks:new Set(),
   batch:{portrait:true,makeup:true,bokeh:true,sky:true,light:true},

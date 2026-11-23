@@ -106,6 +106,8 @@ async function layerOutlineCut(L,screenPts){const src=STORE.images.get(L.img);if
     const f=new Float32Array(a.length);for(let i=0;i<a.length;i++)f[i]=a[i]/255;const full=maskFromFloat(f,s.w,s.h,src.width,src.height);
     const out=document.createElement('canvas');out.width=src.width;out.height=src.height;const x=out.getContext('2d');x.drawImage(src,0,0);
     const im=x.getImageData(0,0,out.width,out.height);for(let i=0;i<full.length;i++)im.data[i*4+3]=Math.min(im.data[i*4+3],full[i]);x.putImageData(im,0,0);
+    {const cs=olContours(a,s.w,s.h,1);if(cs.length){const N=120,to=olResample(cs[0],N);const toS=to.map(p=>layerUvToScreen(L,p));const fr=olAlign(toS,olResample(screenPts,N),1);
+      const idx=toS.map((_,i)=>i);OLA.layer={lid:L.id,to,full:cs[0],from:fr,t0:performance.now()+60};void idx;}}
     if(!L.imgOrig)L.imgOrig=L.img;const id='file:'+uid('f');STORE.images.set(id,out);imageNames.set(id,(imageNames.get(L.imgOrig)||L.name)+' (테두리로 따냄)');L.img=id;
     R.layerTex.delete(L.id);if(RH)RH.layerTex.delete(L.id);busy(false);UI.layerCut=false;syncUI();updateModeUI();requestRender();commit('레이어 테두리로 따내기');}
   catch(e){console.error(e);busy(false);toast('따내기 실패: '+e.message);}}
@@ -126,3 +128,54 @@ async function removeBaseBg(){const ph=cur;if(!ph)return;
     busy(false);return{data,w,h};});if(!r||cur!==ph)return;
   const [w,h]=mapSize(ph);const aid=storeMap(maskFromFloat(r.data,r.w,r.h,w,h),w,h,'mask');P().baseCut={kind:'ai',aid,ph:ph.uid};syncUI();requestRender();commit('배경 사진 배경 제거');}
 function baseRestore(){if(!cur||!P().baseCut)return;P().baseCut=null;syncUI();requestRender();commit('배경 사진 원래대로');}
+
+/* ---- outline of a selection: trace the edge of the picked area so the drawn line can shrink onto it ---- */
+function olContours(a,w,h,maxN){maxN=maxN||6;const s=Math.min(1,360/Math.max(w,h)),W=Math.max(2,Math.round(w*s)),H=Math.max(2,Math.round(h*s)),PW=W+2;
+  const B=new Uint8Array(PW*(H+2));for(let y=0;y<H;y++){const sy=Math.min(h-1,Math.floor((y+.5)/H*h));for(let x=0;x<W;x++){const sx=Math.min(w-1,Math.floor((x+.5)/W*w));if(a[sy*w+sx]>=128)B[(y+1)*PW+x+1]=1;}}
+  const lab=new Int32Array(B.length),comps=[];let id=0;
+  for(let i=0;i<B.length;i++){if(!B[i]||lab[i])continue;id++;let area=0;const st=[i];lab[i]=id;
+    while(st.length){const j=st.pop();area++;for(const d of[-1,1,-PW,PW]){const k=j+d;if(B[k]&&!lab[k]){lab[k]=id;st.push(k);}}}comps.push({id,area,start:i});}
+  if(!comps.length)return[];comps.sort((p,q)=>q.area-p.area);const minA=Math.max(6,comps[0].area*.01);
+  const DX=[-1,-1,0,1,1,1,0,-1],DY=[0,-1,-1,-1,0,1,1,1],DO=DX.map((dx,i)=>dx+DY[i]*PW);
+  const out=[];
+  for(const c of comps.slice(0,maxN)){if(c.area<minA)break;const p0=c.start;let cur=p0,bi=0;const pts=[];let guard=0;
+    for(;;){pts.push(cur);let found=-1;for(let k=1;k<=8;k++){const d=(bi+k)%8,n=cur+DO[d];if(lab[n]===c.id){found=d;break;}}
+      if(found<0)break;const prev=(found+7)%8;const nb=cur+DO[prev];cur=cur+DO[found];bi=DO.indexOf(nb-cur);if(bi<0)bi=0;
+      if(cur===p0||++guard>W*H*4)break;}
+    const poly=pts.map(i=>[((i%PW)-1+.5)/W,((i/PW|0)-1+.5)/H]);
+    out.push(olSmooth(olThin(poly,.9/Math.max(W,H))));}
+  return out;}
+function olSmooth(p){if(p.length<4)return p;const o=[];for(let i=0;i<p.length;i++){const a=p[(i-1+p.length)%p.length],b=p[i],c=p[(i+1)%p.length];o.push([(a[0]+2*b[0]+c[0])/4,(a[1]+2*b[1]+c[1])/4]);}return o;}
+function olResample(p,N){if(!p||!p.length)return[];if(p.length===1)return Array(N).fill(p[0]);const L=[0];for(let i=1;i<=p.length;i++){const a=p[i-1],b=p[i%p.length];L.push(L[i-1]+Math.hypot(b[0]-a[0],b[1]-a[1]));}
+  const tot=L[p.length]||1,o=[];let j=0;for(let k=0;k<N;k++){const d=k/N*tot;while(j<p.length-1&&L[j+1]<d)j++;const a=p[j],b=p[(j+1)%p.length],seg=L[j+1]-L[j]||1,t=(d-L[j])/seg;o.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}return o;}
+/* match point order (start + direction) of b to a so the morph doesn't twist */
+function olAlign(a,b,asp){const N=a.length;let best=Infinity,bo=0,br=false;
+  for(const rev of[false,true]){const q=rev?b.slice().reverse():b;for(let o=0;o<N;o+=2){let e=0;for(let i=0;i<N;i+=3){const p=q[(i+o)%N];e+=((p[0]-a[i][0])*asp)**2+(p[1]-a[i][1])**2;}if(e<best){best=e;bo=o;br=rev;}}}
+  const q=br?b.slice().reverse():b;return q.map((_,i)=>q[(i+bo)%N]);}
+const OLA={};let olRaf=0;
+function olKick(){if(olRaf)return;olRaf=requestAnimationFrame(()=>{olRaf=0;drawOverlay();});}
+/* shape to draw for a selection: morphs from the previous shape (first time: the drawn line) to the traced edge */
+function olShape(id,entry,fromPts,asp){if(!entry)return null;if(!entry.contours)entry.contours=olContours(entry.data,entry.w,entry.h);
+  const tg=entry.contours;if(!tg.length)return{main:fromPts||[],rest:[],t:1};const now=performance.now();let A=OLA[id];
+  if(!A||A.key!==entry.key){const src=A?A.cur:fromPts;const N=120;const to=olResample(tg[0],N);const from=src&&src.length>2?olAlign(to,olResample(src,N),asp):to;
+    A=OLA[id]={key:entry.key,from,to,full:tg[0],rest:tg.slice(1),t0:now};}
+  const t=Math.min(1,(now-A.t0)/450),e=1-Math.pow(1-t,3);
+  A.cur=t>=1?A.full:A.from.map((p,i)=>[p[0]+(A.to[i][0]-p[0])*e,p[1]+(A.to[i][1]-p[1])*e]);if(t<1)olKick();
+  return{main:A.cur,rest:A.rest,t};}
+function olSvg(sh,toScr){if(!sh||!sh.main.length)return'';const P=poly=>poly.map(p=>toScr(p).join(',')).join(' ');
+  let s=`<polygon points="${P(sh.main)}" fill="none" stroke="#000" stroke-width="3" opacity=".35"/><polygon points="${P(sh.main)}" fill="none" stroke="#fff" stroke-width="1.4" stroke-dasharray="5 4"/>`;
+  sh.rest.forEach(r=>{s+=`<polygon points="${P(r)}" fill="none" stroke="#fff" stroke-width="1.2" stroke-dasharray="4 4" opacity="${(.85*sh.t).toFixed(2)}"/>`;});return s;}
+/* the background photo's cut: same edge display */
+const baseCutEntry={key:null};
+function baseCutShape(){const bc=cur&&P().baseCut;if(!bc||!R)return null;let e=null;
+  if(bc.kind==='outline')e=R.olT&&R.olT.get('__base');else if(bc.kind==='ai'){const m=STORE.aimaps.get(bc.aid);if(m){if(baseCutEntry.key!==bc.aid)Object.assign(baseCutEntry,{key:bc.aid,data:m.data,w:m.w,h:m.h,contours:null});e=baseCutEntry;}}
+  return e?olShape('base',e,bc.pts,R.last.w/R.last.h):null;}
+/* image layer cut: animate the drawn line onto the cut edge, then fade */
+function layerUvToScreen(L,uv){const lr=R.last,rc=R.layerRect(L,lr.outW,lr.outH);if(!rc)return[0,0];const t=L.rot*Math.PI/180,c=Math.cos(t),s=Math.sin(t);
+  const x=(uv[0]-.5)*rc.w,y=(uv[1]-.5)*rc.h;return outToScreen(L.x*lr.outW+c*x-s*y,L.y*lr.outH+s*x+c*y);}
+function layerCutAnimSvg(){const A=OLA.layer;if(!A)return'';const L=cur&&cur.params.layers.find(l=>l.id===A.lid);if(!L){delete OLA.layer;return'';}
+  const now=performance.now(),t=Math.min(1,(now-A.t0)/450),e=1-Math.pow(1-t,3),fade=Math.max(0,Math.min(1,1-(now-A.t0-1400)/500));if(fade<=0){delete OLA.layer;return'';}
+  const toS=A.to.map(p=>layerUvToScreen(L,p));const pts=t>=1?A.full.map(p=>layerUvToScreen(L,p)):A.from.map((p,i)=>[p[0]+(toS[i][0]-p[0])*e,p[1]+(toS[i][1]-p[1])*e]);olKick();
+  const P=pts.map(p=>p.join(',')).join(' ');return`<g opacity="${fade.toFixed(2)}"><polygon points="${P}" fill="none" stroke="#000" stroke-width="3" opacity=".35"/><polygon points="${P}" fill="none" stroke="#ffd34d" stroke-width="1.6" stroke-dasharray="5 4"/></g>`;}
+
+function saveOl(){try{localStorage.setItem('lumen.outline',JSON.stringify(UI.outline));}catch(e){}}

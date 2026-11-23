@@ -132,7 +132,7 @@ function buildSkyLight(b){
 /* ---- injections into existing panels ---- */
 function injectAI(){
   // mask panel
-  const mp=$('maskNew');const box=el('div');mp.after(box);
+  const mp=$('maskNew');const box=el('div');mp.parentNode.appendChild(box);
   const h=el('div','sub');h.innerHTML='AI로 만들기 '+aiBadge();box.appendChild(h);
   const mr=el('div','inline');mr.style.marginBottom='4px';box.appendChild(mr);
   selectCtl(mr,'적용','ui:aiMode',[['new','새 마스크로'],['add','선택 마스크에 더하기'],['sub','선택 마스크에서 빼기'],['int','선택 마스크와 교차']],{always:true,noCommit:true,noRender:true}).style.flex='1';

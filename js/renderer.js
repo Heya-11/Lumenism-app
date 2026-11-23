@@ -169,7 +169,7 @@ class Renderer{
         for(let y=0;y<h;y++){const sy=Math.min(fh-1,Math.floor((y+.5)/h*fh));for(let x=0;x<w;x++){const sx=Math.min(fw-1,Math.floor((x+.5)/w*fw)),k=(sy*fw+sx)*4,o=(y*w+x)*4;d[o]=px[k];d[o+1]=px[k+1];d[o+2]=px[k+2];d[o+3]=255;}}
         this._olSrc={w,h,d,src:this.fieldSrc};}px=this._olSrc.d;}
     let am=null;if(ai){am=new Uint8Array(w*h);for(let y=0;y<h;y++){const sy=Math.min(ai.h-1,Math.floor((y+.5)/h*ai.h));for(let x=0;x<w;x++)am[y*w+x]=ai.data[sy*ai.w+Math.min(ai.w-1,Math.floor((x+.5)/w*ai.w))];}}
-    const data=outlineCut(px,w,h,c.pts,c.snap??70,am);if(t)this.gl.deleteTexture(t.tex);t={key,tex:this.tex(w,h,{r8:true,data})};this.olT.set(c.id,t);return t.tex;}
+    const data=outlineCut(px,w,h,c.pts,c.snap??70,am);if(t)this.gl.deleteTexture(t.tex);t={key,tex:this.tex(w,h,{r8:true,data}),data,w,h};this.olT.set(c.id,t);return t.tex;}
   maskWeight(m){const gl=this.gl,fw=this.fw,fh=this.fh;
     const texs=m.comps.map(c=>c.type==='brush'?this.brushTex(c,!!c.auto):c.type==='ai'?this.aiTex(c.aid):c.type==='outline'?this.outlineTex(c):null);
     gl.bindFramebuffer(gl.FRAMEBUFFER,this.wF);gl.viewport(0,0,fw,fh);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
