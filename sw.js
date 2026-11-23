@@ -1,9 +1,9 @@
 /* Lumenism service worker: app shell (same-origin) = stale-while-revalidate, AI engines/models/fonts = cache-first forever */
-const VER='lumen-app-v10';
+const VER='lumen-app-v11';
 const PACK_CACHE='lumen-models-v1';
 const MODEL_HOSTS=/^(cdn\.jsdelivr\.net|storage\.googleapis\.com|huggingface\.co|[a-z0-9-]+\.hf\.co|fonts\.googleapis\.com|fonts\.gstatic\.com)$/;
 const SHELL=['./','index.html','manifest.webmanifest','css/app.css','assets/icon-192.png','assets/icon-512.png',
-  ...['geo','shaders','warp','renderer','io','inpaint','hdr','core','controls','panels','tools','auto','ai','faces','aifeat','aifeat2','sky','aiui','mobile','pwa','main'].map(n=>`js/${n}.js`)];
+  ...['geo','shaders','warp','renderer','io','inpaint','hdr','core','controls','panels','tools','auto','ai','faces','aifeat','aifeat2','sky','outline','viewx','aiui','mobile','pwa','main'].map(n=>`js/${n}.js`)];
 self.addEventListener('install',e=>{/* all-or-nothing: the new version only installs once every app file is downloaded */
   e.waitUntil(caches.open(VER).then(c=>c.addAll(SHELL.map(u=>new Request(u,{cache:'reload'})))));});
 self.addEventListener('message',e=>{if(e.data==='skip')self.skipWaiting();});

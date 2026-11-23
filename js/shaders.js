@@ -246,7 +246,7 @@ void main(){vec2 ouv=uRegion.xy+vUv*uRegion.zw;vec3 c=texture(uBase,vUv).rgb;if(
  o=vec4(clamp(c,0.,1.),1.);}`;
 
 const FS_LAYER=HDR+COMMON+`out vec4 o;
-uniform sampler2D uBase,uTex;uniform vec4 uRegion;uniform int uType,uBlend,uMType,uMInv,uAdjInv;uniform mat3 uXf;uniform float uOp,uSplit,uOutAspect,uMF;
+uniform sampler2D uBase,uTex,uCut;uniform vec4 uRegion;uniform int uType,uBlend,uMType,uMInv,uAdjInv,uCutOn;uniform mat3 uXf,uGeo;uniform float uOp,uSplit,uOutAspect,uMF;
 uniform vec3 uColor;uniform vec4 uMP,uAdj;
 vec3 blendMode(vec3 b,vec3 s,int m){
  if(m==1)return b*s;if(m==2)return 1.-(1.-b)*(1.-s);if(m==3)return overlayB(b,s);
@@ -259,21 +259,26 @@ vec3 blendMode(vec3 b,vec3 s,int m){
   if(m==13){vec3 r=hsl2rgb(vec3(hs.x,hs.y,hb.z));return r+(luma(b)-luma(r));}
   vec3 r=b+(luma(s)-luma(b));return r;}
  return s;}
-void main(){vec2 ouv=uRegion.xy+vUv*uRegion.zw;vec3 b=texture(uBase,vUv).rgb;if(ouv.x<uSplit){o=vec4(b,1.);return;}
+void main(){vec2 ouv=uRegion.xy+vUv*uRegion.zw;vec4 B=texture(uBase,vUv);vec3 b=B.rgb;if(ouv.x<uSplit&&uType!=4){o=B;return;}
  vec4 s;
- if(uType<=1){vec3 lu=uXf*vec3(vUv,1.);vec2 q=lu.xy;if(q.x<0.||q.y<0.||q.x>1.||q.y>1.)s=vec4(0.);else s=texture(uTex,q);}
+ if(uType==4){s=texture(uTex,vUv);if(uCutOn==1){vec3 h=uGeo*vec3(vUv,1.);vec2 q=h.xy/h.z;s.a*=(q.x<0.||q.y<0.||q.x>1.||q.y>1.)?0.:texture(uCut,vec2(q.x,1.-q.y)).r;}}
+ else if(uType<=1){vec3 lu=uXf*vec3(vUv,1.);vec2 q=lu.xy;if(q.x<0.||q.y<0.||q.x>1.||q.y>1.)s=vec4(0.);else s=texture(uTex,q);}
  else if(uType==2)s=vec4(uColor,1.);
  else{vec3 a=b*exp2(uAdj.x);a=(a-.5)*(1.+uAdj.y)+.5;a=mix(vec3(luma(a)),a,1.+uAdj.z);vec3 hh=rgb2hsl(clamp(a,0.,1.));hh.x=fract(hh.x+uAdj.w);a=hsl2rgb(hh);
-  if(uAdjInv==1)a=1.-a;s=vec4(clamp(a,0.,1.),1.);}
+  if(uAdjInv==1)a=1.-a;s=vec4(clamp(a,0.,1.),B.a);}
  float m=1.;vec2 p=vec2(ouv.x,1.-ouv.y);vec2 asp=vec2(uOutAspect,1.);
  if(uMType==1){vec2 dir=vec2(cos(uMP.z),sin(uMP.z));float d=dot((p-uMP.xy)*asp,dir);m=smoothstep(-uMP.w-.001,uMP.w+.001,d);}
  else if(uMType==2){float d=length((p-uMP.xy)*asp)/max(uMP.z,.001);m=1.-smoothstep(1.-uMF,1.,d);}
  if(uMType>0&&uMInv==1)m=1.-m;
- vec3 r=blendMode(clamp(b,0.,1.),clamp(s.rgb,0.,1.),uBlend);float al=s.a*uOp*m;o=vec4(mix(b,r,al),1.);}`;
+ vec3 r=blendMode(clamp(b,0.,1.),clamp(s.rgb,0.,1.),uBlend);r=mix(clamp(s.rgb,0.,1.),r,B.a);float al=s.a*uOp*m;
+ if(B.a>=.9999){o=vec4(mix(b,r,al),1.);return;}
+ float oa=B.a+al*(1.-B.a);o=vec4(oa>1e-5?(b*B.a*(1.-al)+r*al)/oa:vec3(0.),oa);}`;
 
-const FS_PRESENT=HDR+`out vec4 o;uniform sampler2D uTex;uniform vec2 uTexel;uniform int uClip;uniform float uOS;
-void main(){vec3 c=texture(uTex,vUv).rgb;
+const FS_PRESENT=HDR+`out vec4 o;uniform sampler2D uTex;uniform vec2 uTexel;uniform int uClip,uBg;uniform float uOS;
+void main(){vec4 T=texture(uTex,vUv);vec3 c=T.rgb;
  if(uOS>0.){vec3 n=(texture(uTex,vUv+vec2(uTexel.x,0.)).rgb+texture(uTex,vUv-vec2(uTexel.x,0.)).rgb+texture(uTex,vUv+vec2(0.,uTexel.y)).rgb+texture(uTex,vUv-vec2(0.,uTexel.y)).rgb)*.25;
   c=clamp(c+(c-n)*uOS,0.,1.);}
  if(uClip==1){if(max(c.r,max(c.g,c.b))>=.996)c=vec3(1.,.1,.1);else if(max(c.r,max(c.g,c.b))<=.006)c=vec3(.15,.35,1.);}
- o=vec4(c,1.);}`;
+ if(uBg==1){o=vec4(clamp(c,0.,1.),T.a);return;}
+ vec3 bg=uBg==2?vec3(1.):vec3(mod(floor(gl_FragCoord.x/10.)+floor(gl_FragCoord.y/10.),2.)<1.?.78:.6);
+ o=vec4(mix(bg,c,T.a),1.);}`;

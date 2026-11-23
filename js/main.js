@@ -35,11 +35,11 @@ function addThumb(ph,after){const d=el('div','th');d.innerHTML=`<img alt=""><but
 function removePhoto(ph){const i=photos.indexOf(ph);if(i<0)return;photos.splice(i,1);ph.el.remove();if(!photos.some(p=>p.bm===ph.bm))ph.bm.close&&ph.bm.close();
   if(cur===ph){cur=null;const n=photos.filter(visibleByFilter);if(n.length)select(n[Math.min(i,n.length-1)]);else if(photos.length)select(photos[0]);else setEmpty();}syncUI();}
 function setEmpty(){glc.style.display='none';$('empty').style.display='';['left','right'].forEach(i=>$(i).classList.add('disabled'));
-  ['bBefore','bSplit','bHQ','bFit','bReset','bExport','bUndo','bRedo'].forEach(i=>$(i).disabled=true);hideHi();$('mName').textContent='—';$('mDim').textContent='';$('exif').textContent='';
+  ['bBefore','bSplit','bHQ','bFit','bFull','bReset','bExport','bUndo','bRedo'].forEach(i=>$(i)&&($(i).disabled=true));if(UI.fsv)exitFs();hideHi();$('mName').textContent='—';$('mDim').textContent='';$('exif').textContent='';
   $('zoomLbl').textContent='—';hctx.clearRect(0,0,hcv.width,hcv.height);ov.innerHTML='';vhint('');syncUI();}
 function select(ph){recOnSelect();UI.cropSug=null;UI.face=-1;if(UI.recAI&&!ph._aiInfo)recAIInfo(ph).then(()=>{if(cur===ph){recCache=null;syncUI();}});photos.forEach(p=>{if(p!==ph&&p.full&&p.full!==p.bm)p.full=null;});cur=ph;R.setSource(UI.fullPreview?fullSource(ph):ph.prev,UI.fullPreview?2048:1024);glc.style.display='block';$('empty').style.display='none';
   UI.pendingCreate=null;UI.straighten=false;UI.guide=false;UI.guideLines=[];UI.pick=null;UI.ret.off=null;
-  ['left','right'].forEach(i=>$(i).classList.remove('disabled'));['bBefore','bSplit','bHQ','bFit','bReset','bExport'].forEach(i=>$(i).disabled=false);
+  ['left','right'].forEach(i=>$(i).classList.remove('disabled'));['bBefore','bSplit','bHQ','bFit','bFull','bReset','bExport'].forEach(i=>$(i)&&($(i).disabled=false));
   photos.forEach(p=>p.el.classList.toggle('on',p===ph));ph.el.scrollIntoView({block:'nearest',inline:'nearest'});
   $('mName').textContent=ph.name;$('mDim').textContent=`${ph.w} × ${ph.h}`+(ph.raw?' · RAW 미리보기':'');$('exif').textContent=exifText(ph.exif);
   doRender();fitView();syncUI();updateModeUI();}
@@ -77,8 +77,8 @@ async function exportPresets(){const a=loadUserPresets();if(!a.length){toast('�
 async function importPresets(f){try{const a=JSON.parse(await f.text());if(!Array.isArray(a))throw 0;const b=loadUserPresets();a.forEach(x=>{if(x&&x.n&&x.p)b.push({n:x.n,p:x.p});});saveUserPresets(b);syncUI();toast(`${a.length}개 프리셋을 가져왔어요`);}
   catch(e){toast('프리셋 파일을 읽지 못했어요');}}
 function adaptParams(src,ph){const np=clone(src);PHOTO_ONLY.forEach(k=>np[k]=clone(ph.params[k]));np.portrait.aid=ph.params.portrait.aid;np.fx.aid=ph.params.fx.aid;np.portrait.fw=clone(ph.params.portrait.fw||[]);np.portrait.edits=clone(ph.params.portrait.edits||[]);np.portrait.pf=clone(ph.params.portrait.pf||[]);np.sky.aid=(ph.params.sky||{}).aid||null;if(!np.sky.aid)np.sky.on=false;np.light.aid=(ph.params.light||{}).aid||null;if(!np.light.aid)np.light.on=false;
-  if(np.fx.tilt>=3&&np.fx.tilt<=5&&!np.fx.aid)np.fx.tilt=0;np.masks=np.masks.map(m=>Object.assign(m,{comps:m.comps.filter(c=>c.type!=='ai'||c.ph===ph.uid)})).filter(m=>m.comps.length);
-  if(np.fx.tilt===6&&!np.masks.some(m=>m.id===np.fx.maskId))np.fx.tilt=0;return np;}
+  if(np.fx.tilt>=3&&np.fx.tilt<=5&&!np.fx.aid)np.fx.tilt=0;np.masks=np.masks.map(m=>Object.assign(m,{comps:m.comps.filter(c=>(c.type!=='ai'&&c.type!=='outline')||c.ph===ph.uid)})).filter(m=>m.comps.length);
+  if(np.fx.tilt===6&&!np.masks.some(m=>m.id===np.fx.maskId))np.fx.tilt=0;if(np.baseCut&&np.baseCut.ph!==ph.uid)np.baseCut=null;return np;}
 function syncToOthers(){if(!cur)return;const s=clone(cur.params);const sel=photos.filter(p=>p.selected&&p!==cur);const list=sel.length?sel:photos.filter(p=>p!==cur);let n=0;
   list.forEach(ph=>{ph.params=adaptParams(s,ph);ph.history=ph.history.slice(0,ph.hi+1);ph.history.push({label:'설정 동기화',state:clone(ph.params)});ph.hi=ph.history.length-1;markEdited(ph);n++;});
   toast(n?`${n}장의 사진에 적용했어요 (자르기·리터칭·레이어 제외)`:'다른 사진이 없어요');}
@@ -151,8 +151,8 @@ async function renderPhoto(ph,E,maxLong){if(document.fonts)await document.fonts.
   const sc=Math.min(1,lim/Math.max(G.outW,G.outH),Math.min(R.maxTex,TEX_CAP)/Math.max(ph.w,ph.h));
   const srcC=drawScaled(ph.bm,ph.w,ph.h,Math.max(ph.w,ph.h)*sc);
   if(ph.params.layers.some(l=>l.type==='image'))ph.params.layers.forEach(l=>l.img&&ensureImageSourceFor(l.img));
-  const oc=document.createElement('canvas');const r2=new Renderer(oc);
-  let flat;try{r2.setSource(srcC,maxLong?512:2048);r2.render(ph.params,{outSharp:maxLong?0:+E.os});flat=document.createElement('canvas');flat.width=oc.width;flat.height=oc.height;flat.getContext('2d').drawImage(oc,0,0);}finally{r2.dispose();}
+  const see=ph.params.baseHidden||ph.params.baseZ>0||!!ph.params.baseCut,tr=see&&/png|webp/.test(E.fmt||'');const oc=document.createElement('canvas');const r2=new Renderer(oc,{alpha:tr});
+  let flat;try{r2.setSource(srcC,maxLong?512:2048);r2.render(ph.params,{outSharp:maxLong?0:+E.os,bg:tr?1:2});flat=document.createElement('canvas');flat.width=oc.width;flat.height=oc.height;flat.getContext('2d').drawImage(oc,0,0);}finally{r2.dispose();}
   if(!maxLong&&E.up&&aiAvailable()){let inp=flat;if(Math.max(flat.width,flat.height)>2048)inp=drawScaled(flat,flat.width,flat.height,2048);
     try{flat=await aiUpscale2x(inp,p=>{$('expStatus').textContent=`AI 업스케일 중… ${Math.round(p*100)}%`;});}catch(e){console.error(e);toast('AI 업스케일 실패 — 원래 크기로 저장해요');}}
   return compose(flat,E);}
@@ -185,7 +185,7 @@ $('eGo').onclick=async()=>{const E=UI.exp;const go=$('eGo');go.disabled=true;
 $('file').onchange=e=>{addFiles(e.target.files);e.target.value='';};
 ['bOpen','bOpen2','bAdd'].forEach(i=>$(i).onclick=()=>$('file').click());
 $('bUndo').onclick=()=>cur&&gotoHistory(cur.hi-1);$('bRedo').onclick=()=>cur&&gotoHistory(cur.hi+1);
-$('bReset').onclick=()=>{if(!cur)return;replaceParams(defaults());commit('모두 초기화');};
+$('bReset').onclick=async()=>{if(!cur)return;if(!await confirmDialog('모든 보정 초기화','이 사진의 보정·자르기·마스크·리터칭·레이어를 모두 처음 상태로 되돌릴까요? (실행 취소로 되돌릴 수 있어요)'))return;replaceParams(defaults());commit('모두 초기화');};
 function setCompare(m){UI.compare=UI.compare===m?'off':m;$('bBefore').classList.toggle('on',UI.compare==='before');$('bSplit').classList.toggle('on',UI.compare==='split');
   $('badge').style.display=UI.compare==='before'?'block':'none';requestRender();}
 $('bBefore').onclick=()=>cur&&setCompare('before');$('bSplit').onclick=()=>cur&&setCompare('split');
@@ -210,6 +210,11 @@ window.addEventListener('keydown',e=>{
   if(e.target.matches('input[type=range]')&&/Arrow/.test(e.key))return;
   if(!cur||mod||e.altKey)return;const k=e.key;
   const tools={e:'edit',E:'edit',r:'crop',R:'crop',m:'mask',M:'mask',q:'retouch',Q:'retouch',l:'layers',L:'layers',f:'portrait',F:'portrait'};
+  if(UI.fsv&&k==='Escape'){exitFs();return;}
+  if(k==='v'||k==='V'){if(UI.fsv)exitFs();else enterFs();return;}
+  if(k==='Z'&&e.shiftKey){fitToSelected();return;}
+  if(tool==='layers'&&/^Arrow/.test(k)&&!e.target.matches('input')){const L=selLayer();if(L&&(L.type==='image'||L.type==='text')){e.preventDefault();const st=e.shiftKey?10:1;
+    nudgeLayer(k==='ArrowLeft'?-st:k==='ArrowRight'?st:0,k==='ArrowUp'?-st:k==='ArrowDown'?st:0);return;}}
   if(k==='i'||k==='I'){toggleAIOv();return;}
   if(k==='\\')setCompare('before');else if(k==='y'||k==='Y')setCompare('split');
   else if(k==='z'||k==='Z')toggleZoom();else if(k==='j'||k==='J')setClip(!UI.clip);
@@ -225,6 +230,9 @@ window.addEventListener('keyup',e=>{if(e.key===' '){UI.space=false;vw.classList.
 if(document.fonts)document.fonts.addEventListener&&document.fonts.addEventListener('loadingdone',()=>{if(R){R.layerTex.forEach((v,k)=>R.layerTex.delete(k));requestRender();}});
 
 /* ================= init ================= */
-buildEdit();buildCrop();buildMask();buildRetouch();buildLayers();buildPortrait();buildLeft();injectAI();initMobile();initPWA();
+{const D=defaults(),DJ={c:JSON.stringify(D.curves),p:JSON.stringify(D.pcurve)};Object.assign(SEC_MOD,{'톤 곡선':()=>JSON.stringify(P().curves)!==DJ.c||JSON.stringify(P().pcurve)!==DJ.p,
+  '듀오톤':()=>!!P().duo.on,'LUT (.cube)':()=>!!(P().lut&&P().lut.id),'하늘 교체 · 입체 조명':()=>!!(P().sky.on||P().light.on),'얼굴 가리기 (초상권 보호)':()=>!!(P().privacy.items||[]).length,
+  '픽셀 유동화 (수동)':()=>!!(P().liquify||[]).length,'적용 범위 다듬기':()=>!!(P().portrait.edits||[]).length});}
+buildEdit();buildCrop();buildMask();buildRetouch();buildLayers();buildPortrait();buildLeft();injectAI();initFs();initMobile();initPWA();
 dynHooks.push(()=>{photos.forEach(thumbBadges);});
 setEmpty();

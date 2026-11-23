@@ -48,5 +48,9 @@ function textCtl(parent,label,path,o={}){const r=el('div',o.area?'':'frow');r.in
   i.onchange=()=>{if(!cur&&!o.always)return;if(!o.noCommit)commit(`${o.hl||label} 변경`);};parent.appendChild(r);controls.push({sync(){if(document.activeElement!==i)i.value=getP(path)??'';}});return r;}
 function dyn(parent,render){const d=el('div');parent.appendChild(d);controls.push({sync(){render(d);}});return d;}
 const dynHooks=[];
-function syncUI(){controls.forEach(c=>c.sync());dynHooks.forEach(f=>f());drawCurve();renderHistory();
+const SEC_MOD={};
+function secMarks(){[...document.querySelectorAll('.sec')].reverse().forEach(sec=>{if(sec.classList.contains('mnew'))return;let m=false;
+  if(cur){const t=sec.querySelector(':scope>.sech span')?.textContent,f=SEC_MOD[t];try{m=(f&&f())||[...sec.querySelectorAll(':scope>.secb .sl.changed')].some(x=>!x.closest('[style*="display: none"]'))||[...sec.querySelectorAll(':scope>.secb .sec')].some(x=>x.classList.contains('mod'));}catch(e){m=false;}}
+  sec.classList.toggle('mod',m);});}
+function syncUI(){controls.forEach(c=>c.sync());dynHooks.forEach(f=>f());secMarks();drawCurve();renderHistory();
   $('bUndo').disabled=!cur||cur.hi<=0;$('bRedo').disabled=!cur||cur.hi>=cur.history.length-1;}

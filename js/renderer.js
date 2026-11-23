@@ -41,8 +41,8 @@ const BLEND_IDX=Object.fromEntries(BLENDS.map((b,i)=>[b[0],i]));
 const STORE={images:new Map(),patches:new Map(),luts:new Map(),aimaps:new Map(),portrait:new Map()};
 
 class Renderer{
-  constructor(canvas){
-    const gl=canvas.getContext('webgl2',{preserveDrawingBuffer:true,premultipliedAlpha:false,antialias:false,alpha:false});
+  constructor(canvas,opt={}){
+    const gl=canvas.getContext('webgl2',{preserveDrawingBuffer:true,premultipliedAlpha:false,antialias:false,alpha:!!opt.alpha});
     if(!gl)throw new Error('WebGL2를 사용할 수 없는 브라우저입니다.');
     this.gl=gl;this.canvas=canvas;this.maxTex=gl.getParameter(gl.MAX_TEXTURE_SIZE);
     this.localOK=!!gl.getExtension('EXT_color_buffer_float');
@@ -92,7 +92,7 @@ class Renderer{
     if(this.srcTex)gl.deleteTexture(this.srcTex);if(this.retTex){gl.deleteTexture(this.retTex);gl.deleteFramebuffer(this.retF);this.retTex=null;}
     [this.lowP,this.midP].forEach(p=>this.freePair(p));
     (this.fT||[]).forEach(t=>gl.deleteTexture(t));if(this.fF)gl.deleteFramebuffer(this.fF);if(this.wT){gl.deleteTexture(this.wT);gl.deleteFramebuffer(this.wF);}
-    this.brush.forEach(c=>gl.deleteTexture(c.tex));this.brush.clear();this.fieldKey='';this.retKey='';
+    this.brush.forEach(c=>gl.deleteTexture(c.tex));this.brush.clear();if(this.olT){this.olT.forEach(c=>gl.deleteTexture(c.tex));this.olT.clear();}this.fieldKey='';this.retKey='';
     this.patchTex.forEach(t=>gl.deleteTexture(t));this.patchTex.clear();
     const w=canvasSrc.width,h=canvasSrc.height;this.w=w;this.h=h;
     this.srcTex=this.tex(w,h,{src:canvasSrc,mip:true});this.base=this.srcTex;
@@ -161,8 +161,17 @@ class Renderer{
     if(res){const gl=this.gl;if(!this.dispTex||this.dispTex._w!==res.w||this.dispTex._h!==res.h){if(this.dispTex)gl.deleteTexture(this.dispTex);this.dispTex=this.tex(res.w,res.h,{half:true});}
       gl.bindTexture(gl.TEXTURE_2D,this.dispTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,res.w,res.h,0,gl.RGBA,gl.FLOAT,res.data);}
     return this.dispOn;}
+  baseCutTex(bc){if(bc.kind==='ai')return this.aiTex(bc.aid);if(bc.kind==='outline')return this.outlineTex(Object.assign({},bc,{id:'__base'}));return null;}
+  outlineTex(c){if(!c.pts||c.pts.length<3)return null;this.olT=this.olT||new Map();const ai=c.ai&&c.aiAid&&STORE.aimaps.get(c.aiAid);
+    const key=JSON.stringify([c.pts.length,c.pts[0],c.pts[c.pts.length>>1],c.snap,ai?c.aiAid:0]);let t=this.olT.get(c.id);if(t&&t.key===key)return t.tex;
+    const s=Math.min(1,768/Math.max(this.fw,this.fh)),w=Math.max(4,Math.round(this.fw*s)),h=Math.max(4,Math.round(this.fh*s));let px=this.fieldSrc;
+    if(s<1){if(!this._olSrc||this._olSrc.w!==w||this._olSrc.h!==h||this._olSrc.src!==this.fieldSrc){const d=new Uint8ClampedArray(w*h*4),fw=this.fw,fh=this.fh;
+        for(let y=0;y<h;y++){const sy=Math.min(fh-1,Math.floor((y+.5)/h*fh));for(let x=0;x<w;x++){const sx=Math.min(fw-1,Math.floor((x+.5)/w*fw)),k=(sy*fw+sx)*4,o=(y*w+x)*4;d[o]=px[k];d[o+1]=px[k+1];d[o+2]=px[k+2];d[o+3]=255;}}
+        this._olSrc={w,h,d,src:this.fieldSrc};}px=this._olSrc.d;}
+    let am=null;if(ai){am=new Uint8Array(w*h);for(let y=0;y<h;y++){const sy=Math.min(ai.h-1,Math.floor((y+.5)/h*ai.h));for(let x=0;x<w;x++)am[y*w+x]=ai.data[sy*ai.w+Math.min(ai.w-1,Math.floor((x+.5)/w*ai.w))];}}
+    const data=outlineCut(px,w,h,c.pts,c.snap??70,am);if(t)this.gl.deleteTexture(t.tex);t={key,tex:this.tex(w,h,{r8:true,data})};this.olT.set(c.id,t);return t.tex;}
   maskWeight(m){const gl=this.gl,fw=this.fw,fh=this.fh;
-    const texs=m.comps.map(c=>c.type==='brush'?this.brushTex(c,!!c.auto):c.type==='ai'?this.aiTex(c.aid):null);
+    const texs=m.comps.map(c=>c.type==='brush'?this.brushTex(c,!!c.auto):c.type==='ai'?this.aiTex(c.aid):c.type==='outline'?this.outlineTex(c):null);
     gl.bindFramebuffer(gl.FRAMEBUFFER,this.wF);gl.viewport(0,0,fw,fh);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
     const C=this.pComp;gl.useProgram(C);gl.uniform1f(this.u(C,'uAspect'),this.w/this.h);gl.enable(gl.BLEND);
     m.comps.forEach((c,i)=>{const mode=i===0?'add':c.mode;
@@ -183,8 +192,8 @@ class Renderer{
   updateField(p,o){if(!this.localOK)return;const fmode=p.fx.tilt===6?p.fx.maskId||'':'';
     const key=JSON.stringify(p.masks)+'|'+(o.sel||'')+'|'+(o.overlay?1:0)+'|'+fmode;
     if(key===this.fieldKey)return;this.fieldKey=key;const gl=this.gl;
-    const live=new Set();p.masks.forEach(m=>m.comps.forEach(c=>live.add(c.id)));p.retouch.forEach(r=>live.add(r.id));
-    this.brush.forEach((c,id)=>{if(!live.has(id)){gl.deleteTexture(c.tex);this.brush.delete(id);}});
+    const live=new Set(['__base']);p.masks.forEach(m=>m.comps.forEach(c=>live.add(c.id)));p.retouch.forEach(r=>live.add(r.id));
+    this.brush.forEach((c,id)=>{if(!live.has(id)){gl.deleteTexture(c.tex);this.brush.delete(id);}});if(this.olT)this.olT.forEach((c,id)=>{if(!live.has(id)){gl.deleteTexture(c.tex);this.olT.delete(id);}});
     this.clearField();
     for(const m of p.masks){if(!m.comps.length)continue;this.maskWeight(m);const J=m.adj;
       gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
@@ -221,7 +230,7 @@ class Renderer{
   imageTex(L){const src=STORE.images.get(L.img);if(!src)return null;let c=this.layerTex.get(L.id);
     if(c&&c.key===L.img)return c;if(c)this.gl.deleteTexture(c.tex);c={key:L.img,tex:this.tex(src.width,src.height,{src}),w:src.width,h:src.height};this.layerTex.set(L.id,c);return c;}
   layerRect(L,outW,outH){if(L.type==='text'){const c=this.textCanvas(L,outH);return{w:c.w*L.scale/100,h:c.h*L.scale/100,c};}
-    if(L.type==='image'){const c=this.imageTex(L);if(!c)return null;const w=outW*.5*L.scale/100;return{w,h:w*c.h/c.w,c};}return null;}
+    if(L.type==='image'){const c=this.imageTex(L);if(!c)return null;const w=(L.rw?this.w*L.rw:outW*.5)*L.scale/100;return{w,h:w*c.h/c.w,c};}return null;}
   render(p,o={}){const gl=this.gl,cv=this.canvas,w=this.w,h=this.h;
     const G=geoMats(w,h,p.geo,o.cropMode);this.last={...G,w,h};const W=G.outW,H=G.outH;
     let [rx,ry,rw,rh]=o.region||[0,0,W,H];rx=Math.max(0,Math.min(W-1,rx));ry=Math.max(0,Math.min(H-1,ry));rw=Math.max(1,Math.min(rw,W-rx));rh=Math.max(1,Math.min(rh,H-ry));
@@ -304,15 +313,21 @@ class Renderer{
       gl.uniform1i(this.u(X,'uFocusType'),fType);gl.uniform1i(this.u(X,'uFocusFlip'),fFlip);
       gl.uniform1i(this.u(X,'uTilt'),blurOK?fx.tilt:0);gl.uniform2f(this.u(X,'uTC'),fx.tx,fx.ty);gl.drawArrays(gl.TRIANGLES,0,3);curT=out.a;}
     // ---- layers
-    if(!o.cropMode)for(const L of p.layers){if(!L.visible)continue;let rect=null;
-      if(L.type==='image'||L.type==='text'){rect=this.layerRect(L,W,H);if(!rect)continue;}
-      const tgtT=curT===out.a?out.b:out.a,tgtF=curT===out.a?out.fb:out.fa;
+    const bz=Math.max(0,Math.min(p.layers.length,p.baseZ|0)),bHid=!!p.baseHidden,cutT=!o.cropMode&&p.baseCut?this.baseCutTex(p.baseCut):null,stackOn=!o.cropMode&&(bz>0||bHid||!!cutT),baseT=curT;
+    let pool=[[out.a,out.fa],[out.b,out.fb]];
+    if(stackOn){pool=[[out.dev,out.fdev],[out.a,out.fa],[out.b,out.fb]].filter(x=>x[0]!==baseT);gl.bindFramebuffer(gl.FRAMEBUFFER,pool[0][1]);gl.viewport(0,0,rw,rh);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);curT=pool[0][0];}
+    const stack=o.cropMode?[]:stackOn?[...p.layers.slice(0,bz),'BASE',...p.layers.slice(bz)]:p.layers;
+    for(const L of stack){const isB=L==='BASE';if(isB?bHid:!L.visible)continue;let rect=null;
+      if(!isB&&(L.type==='image'||L.type==='text')){rect=this.layerRect(L,W,H);if(!rect)continue;}
+      const tg=pool.find(x=>x[0]!==curT),tgtT=tg[0],tgtF=tg[1];
       const Y=this.pLayer;gl.useProgram(Y);gl.bindFramebuffer(gl.FRAMEBUFFER,tgtF);gl.viewport(0,0,rw,rh);gl.uniform4fv(this.u(Y,'uRegion'),reg);
-      this.bindTex(Y,'uBase',0,curT);this.bindTex(Y,'uTex',1,rect?rect.c.tex:this.empty);
-      gl.uniform1i(this.u(Y,'uType'),{image:0,text:1,color:2,adjust:3}[L.type]);gl.uniform1i(this.u(Y,'uBlend'),BLEND_IDX[L.blend]||0);
+      this.bindTex(Y,'uBase',0,curT);this.bindTex(Y,'uTex',1,isB?baseT:rect?rect.c.tex:this.empty);
+      if(isB){gl.uniform1i(this.u(Y,'uCutOn'),cutT?1:0);this.bindTex(Y,'uCut',2,cutT||this.empty);gl.uniformMatrix3fv(this.u(Y,'uGeo'),false,M3.col(M));gl.uniform1i(this.u(Y,'uType'),4);gl.uniform1i(this.u(Y,'uBlend'),0);gl.uniform1f(this.u(Y,'uOp'),1);gl.uniform1f(this.u(Y,'uSplit'),split);gl.uniform1i(this.u(Y,'uMType'),0);
+        gl.drawArrays(gl.TRIANGLES,0,3);curT=tgtT;continue;}
+      const onion=o.onion&&o.onion===L.id;gl.uniform1i(this.u(Y,'uType'),{image:0,text:1,color:2,adjust:3}[L.type]);gl.uniform1i(this.u(Y,'uBlend'),onion?BLEND_IDX.difference:(BLEND_IDX[L.blend]||0));
       if(rect){const Xf=M3.chain([1,0,0,0,-1,1,0,0,1],M3.T(.5,.5),M3.S(1/rect.w,1/rect.h),M3.R(-L.rot*Math.PI/180),M3.T(-L.x*W,-L.y*H),B);
         gl.uniformMatrix3fv(this.u(Y,'uXf'),false,M3.col(Xf));}
-      gl.uniform1f(this.u(Y,'uOp'),L.opacity/100);gl.uniform1f(this.u(Y,'uSplit'),split);gl.uniform1f(this.u(Y,'uOutAspect'),W/H);
+      gl.uniform1f(this.u(Y,'uOp'),onion?1:L.opacity/100);gl.uniform1f(this.u(Y,'uSplit'),split);gl.uniform1f(this.u(Y,'uOutAspect'),W/H);
       gl.uniform3fv(this.u(Y,'uColor'),hex3(L.color||'#ffffff'));
       gl.uniform4f(this.u(Y,'uAdj'),L.exp||0,(L.con||0)/100,(L.sat||0)/100,(L.hue||0)/360);gl.uniform1i(this.u(Y,'uAdjInv'),L.invert?1:0);
       const mk=L.mask;gl.uniform1i(this.u(Y,'uMType'),mk.type==='linear'?1:mk.type==='radial'?2:0);gl.uniform1i(this.u(Y,'uMInv'),mk.inv?1:0);
@@ -322,7 +337,7 @@ class Renderer{
       gl.drawArrays(gl.TRIANGLES,0,3);curT=tgtT;}
     // ---- present
     const Q=this.pPresent;gl.useProgram(Q);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,rw,rh);
-    this.bindTex(Q,'uTex',0,curT);gl.uniform2f(this.u(Q,'uTexel'),1/rw,1/rh);gl.uniform1i(this.u(Q,'uClip'),o.clip?1:0);gl.uniform1f(this.u(Q,'uOS'),o.outSharp||0);
+    this.bindTex(Q,'uTex',0,curT);gl.uniform2f(this.u(Q,'uTexel'),1/rw,1/rh);gl.uniform1i(this.u(Q,'uClip'),o.clip?1:0);gl.uniform1i(this.u(Q,'uBg'),o.bg||0);gl.uniform1f(this.u(Q,'uOS'),o.outSharp||0);
     gl.drawArrays(gl.TRIANGLES,0,3);}
   readPixel(x,y){const gl=this.gl,b=new Uint8Array(4);gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     gl.readPixels(Math.max(0,Math.min(this.canvas.width-1,Math.round(x))),Math.max(0,Math.min(this.canvas.height-1,this.canvas.height-1-Math.round(y))),1,1,gl.RGBA,gl.UNSIGNED_BYTE,b);return[b[0]/255,b[1]/255,b[2]/255];}

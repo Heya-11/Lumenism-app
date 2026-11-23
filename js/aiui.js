@@ -29,7 +29,7 @@ function buildBokeh(b){
   const st=el('div','hint');g.appendChild(st);
   controls.push({sync(){const fx=P().fx;st.textContent=(fx.tilt>=3&&fx.tilt<=5&&!fx.aid)?'AI 분석이 필요해요. 위의 모드 버튼을 다시 눌러 주세요.':(fx.tilt===6&&!P().masks.length?'먼저 마스크 탭에서 마스크를 만들어 주세요.':'');}});}
 /* ---- 인물 tool ---- */
-function buildPortrait(){const b=el('div','pad');$('pPortrait').appendChild(b);
+function buildPortrait(){let b=el('div','pad');const pRoot=$('pPortrait');pRoot.appendChild(b);const S=(t,closed)=>section(pRoot,t,x=>{b=x;},closed);
   const h=el('div','sub');h.innerHTML='얼굴 · 피부 분석 '+aiBadge();b.appendChild(h);
   btn(b,'얼굴·피부 분석하기',analyzePortrait,'btn full');
   const info=el('div','hint');b.appendChild(info);
@@ -48,7 +48,7 @@ function buildPortrait(){const b=el('div','pad');$('pPortrait').appendChild(b);
   const af=btn(b,'못 찾은 얼굴 추가 (얼굴을 눌러서)',()=>{if(!STORE.portrait.get(P().portrait.aid)&&!cur._faces){toast('먼저 ‘얼굴·피부 분석’을 해 주세요');return;}UI.pick='addFace';updateModeUI();},'btn full');af.style.marginTop='4px';
   const bl=el('button','btn full');bl.innerHTML='역광 인물 살리기 '+aiBadge();bl.style.marginTop='6px';bl.onclick=backlitFix;b.appendChild(bl);
   controls.push({sync(){const pd=STORE.portrait.get(P().portrait.aid);info.textContent=pd?`얼굴 ${pd.faces.length}개 인식됨. 아래 슬라이더로 보정하세요.`:'먼저 분석하면 피부·눈·치아·윤곽 보정을 쓸 수 있어요. (처음 한 번 약 20MB를 내려받아요)';}});
-  sub(b,'피부');
+  S('피부');
   slider(b,{path:'portrait.smooth',label:'부드럽게',hl:'피부 부드럽게',min:0,max:100,fmt:v=>Math.round(v)});
   slider(b,{path:'portrait.keep',label:'결 살리기',hl:'피부결',min:0,max:100,def:50,fmt:v=>Math.round(v)});
   slider(b,{path:'portrait.red',label:'붉은기 줄이기',min:0,max:100,fmt:v=>Math.round(v)});
@@ -56,18 +56,40 @@ function buildPortrait(){const b=el('div','pad');$('pPortrait').appendChild(b);
   slider(b,{path:'ui:blemSens',label:'잡티 감도',min:0,max:100,def:50,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v)});
   btn(b,'잡티 자동 제거',autoBlemish,'btn full').style.marginTop='4px';
   b.appendChild(el('div','hint','콧구멍·눈·눈썹·입술 주변과 길쭉한 주름은 건너뛰어요. 너무 많이 지워지면 감도를 낮추세요.'));
-  sub(b,'눈 · 치아');
+  S('적용 범위 다듬기',true);
+  b.appendChild(el('div','hint','AI가 잡은 범위가 어색하면 직접 칠해서 고쳐요. 고를 부위를 누르면 그 범위가 분홍색으로 보여요.'));
+  chipsCtl(b,'ui:pe.c',Object.entries(PE_CH).map(([k,v])=>[k,v[0]]),{noCommit:true,always:true,onSet:()=>{if(!UI.pe.on)peToggle(true);else{requestRender();updateModeUI();}}});
+  chipsCtl(b,'ui:pe.m',[['add','더하기'],['erase','지우기']],{noCommit:true,always:true,onSet:()=>{updateModeUI();drawOverlay();}});
+  slider(b,{path:'ui:pe.size',label:'브러시 크기',min:4,max:200,def:30,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v),onSet:drawOverlay});
+  const pr=el('div','row2');pr.style.marginTop='6px';b.appendChild(pr);
+  const pt=btn(pr,'다듬기 시작',()=>peToggle(),'btn',{always:true});btn(pr,'이 부위 되돌리기',peReset,'btn');
+  controls.push({sync(){pt.textContent=UI.pe.on?'다듬기 끝내기':'다듬기 시작';pt.classList.toggle('primary',UI.pe.on);}});
+  S('눈 · 치아');
   slider(b,{path:'portrait.eyes',label:'흰자 밝게',min:0,max:100,fmt:v=>Math.round(v)});
   slider(b,{path:'portrait.iris',label:'눈동자 선명',min:0,max:100,fmt:v=>Math.round(v)});
   slider(b,{path:'portrait.teeth',label:'치아 미백',min:0,max:100,fmt:v=>Math.round(v)});
   slider(b,{path:'portrait.dark',label:'다크서클 완화',min:0,max:100,fmt:v=>Math.round(v)});
-  sub(b,'메이크업');
+  S('메이크업');
   slider(b,{path:'portrait.lip',label:'입술 색',min:0,max:100,fmt:v=>Math.round(v)});
   chipsCtl(b,'portrait.lipH',[[352,'로즈'],[2,'레드'],[14,'코랄'],[335,'핑크'],[22,'누드'],[320,'플럼']],{hl:'입술 색상'});
   slider(b,{path:'portrait.blush',label:'볼 터치',min:0,max:100,fmt:v=>Math.round(v)});
   chipsCtl(b,'portrait.blushH',[[6,'코랄'],[350,'로즈'],[20,'피치'],[330,'핑크']],{hl:'볼 터치 색상'});
   slider(b,{path:'portrait.brow',label:'눈썹 진하게',min:-100,max:100});
-  sub(b,'얼굴 가리기 (초상권 보호)');
+  S('얼굴 윤곽');
+  slider(b,{path:'portrait.slim',label:'턱선 갸름',min:-100,max:100});
+  slider(b,{path:'portrait.width',label:'얼굴 폭',hl:'얼굴 폭 줄이기',min:-100,max:100});
+  slider(b,{path:'portrait.eye',label:'눈 크기',min:-100,max:100});
+  slider(b,{path:'portrait.nose',label:'코 폭',hl:'코 폭 줄이기',min:-100,max:100});
+  slider(b,{path:'portrait.smile',label:'입꼬리',min:-100,max:100});
+  btn(b,'인물 보정 초기화',()=>{const a=P().portrait.aid;P().portrait=Object.assign(defaults().portrait,{aid:a});syncUI();requestRender();commit('인물 보정 초기화');},'btn sm').style.marginTop='6px';
+  S('픽셀 유동화 (수동)',true);
+  chipsCtl(b,'ui:liq.mode',[['off','끄기'],['push','밀기'],['bloat','부풀리기'],['pucker','오므리기'],['restore','복원']],{noCommit:true,always:true,onSet:v=>{if(v!=='off'&&(UI.pe.on||UI.pv)){UI.pe.on=false;UI.pv=false;requestRender();syncUI();}updateModeUI();}});
+  slider(b,{path:'ui:liq.size',label:'크기',min:5,max:500,def:80,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v),onSet:drawOverlay});
+  slider(b,{path:'ui:liq.str',label:'강도',min:5,max:100,def:35,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v)});
+  const sr=el('div','msens');sr.innerHTML='<span>조절 감도 (유동화 · 터치 슬라이더)</span>';b.appendChild(sr);sensChips(sr);
+  btn(b,'유동화 모두 지우기',()=>{P().liquify=[];requestRender();commit('유동화 지우기');},'btn sm').style.marginTop='6px';
+  b.appendChild(el('div','hint',(typeof MB!=='undefined'&&MB.touch?'유동화는 AI 없이 쓸 수 있어요. 확대해서 작게, 여러 번 나눠 밀면 자연스러워요. 두 손가락 탭 = 실행 취소, 세 손가락 탭 = 다시 실행':'유동화는 AI 없이 쓸 수 있어요. 브러시로 밀어서 턱선이나 머리 모양을 직접 다듬으세요. <kbd>[</kbd> <kbd>]</kbd> 크기')));
+  S('얼굴 가리기 (초상권 보호)',true);
   b.appendChild(el('div','hint','함께 찍힌 다른 사람의 얼굴을 모자이크로 가려요. 가린 부분은 원본 픽셀 단계에서 처리돼서, 다른 보정으로 되살아나지 않고 내보낸 파일에 항상 들어가요.'));
   const pvb=btn(b,'가리기 시작',()=>pvToggleMode(),'btn full',{always:true});
   const pr0=el('div','row2');pr0.style.margin='6px 0';b.appendChild(pr0);btn(pr0,'모든 얼굴 가리기',()=>pvAll(),'btn');btn(pr0,'모두 해제',pvClear,'btn');
@@ -80,28 +102,7 @@ function buildPortrait(){const b=el('div','pad');$('pPortrait').appendChild(b);
   chipsCtl(b,'privacy.style',[['mosaic','모자이크'],['blur','흐리게'],['solid','검게 칠하기']],{hl:'가리기 방식'});
   slider(b,{path:'privacy.amt',label:'가리는 세기',min:0,max:100,def:50,fmt:v=>Math.round(v)});
   slider(b,{path:'privacy.expand',label:'범위 넓히기',min:0,max:100,def:35,fmt:v=>Math.round(v)});
-  sub(b,'적용 범위 다듬기');
-  b.appendChild(el('div','hint','AI가 잡은 범위가 어색하면 직접 칠해서 고쳐요. 고를 부위를 누르면 그 범위가 분홍색으로 보여요.'));
-  chipsCtl(b,'ui:pe.c',Object.entries(PE_CH).map(([k,v])=>[k,v[0]]),{noCommit:true,always:true,onSet:()=>{if(!UI.pe.on)peToggle(true);else{requestRender();updateModeUI();}}});
-  chipsCtl(b,'ui:pe.m',[['add','더하기'],['erase','지우기']],{noCommit:true,always:true,onSet:()=>{updateModeUI();drawOverlay();}});
-  slider(b,{path:'ui:pe.size',label:'브러시 크기',min:4,max:200,def:30,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v),onSet:drawOverlay});
-  const pr=el('div','row2');pr.style.marginTop='6px';b.appendChild(pr);
-  const pt=btn(pr,'다듬기 시작',()=>peToggle(),'btn',{always:true});btn(pr,'이 부위 되돌리기',peReset,'btn');
-  controls.push({sync(){pt.textContent=UI.pe.on?'다듬기 끝내기':'다듬기 시작';pt.classList.toggle('primary',UI.pe.on);}});
-  sub(b,'얼굴 윤곽');
-  slider(b,{path:'portrait.slim',label:'턱선 갸름',min:-100,max:100});
-  slider(b,{path:'portrait.width',label:'얼굴 폭',hl:'얼굴 폭 줄이기',min:-100,max:100});
-  slider(b,{path:'portrait.eye',label:'눈 크기',min:-100,max:100});
-  slider(b,{path:'portrait.nose',label:'코 폭',hl:'코 폭 줄이기',min:-100,max:100});
-  slider(b,{path:'portrait.smile',label:'입꼬리',min:-100,max:100});
-  btn(b,'인물 보정 초기화',()=>{const a=P().portrait.aid;P().portrait=Object.assign(defaults().portrait,{aid:a});syncUI();requestRender();commit('인물 보정 초기화');},'btn sm').style.marginTop='6px';
-  sub(b,'픽셀 유동화 (수동)');
-  chipsCtl(b,'ui:liq.mode',[['off','끄기'],['push','밀기'],['bloat','부풀리기'],['pucker','오므리기'],['restore','복원']],{noCommit:true,always:true,onSet:v=>{if(v!=='off'&&(UI.pe.on||UI.pv)){UI.pe.on=false;UI.pv=false;requestRender();syncUI();}updateModeUI();}});
-  slider(b,{path:'ui:liq.size',label:'크기',min:5,max:500,def:80,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v),onSet:drawOverlay});
-  slider(b,{path:'ui:liq.str',label:'강도',min:5,max:100,def:35,noCommit:true,noRender:true,always:true,fmt:v=>Math.round(v)});
-  const sr=el('div','msens');sr.innerHTML='<span>조절 감도 (유동화 · 터치 슬라이더)</span>';b.appendChild(sr);sensChips(sr);
-  btn(b,'유동화 모두 지우기',()=>{P().liquify=[];requestRender();commit('유동화 지우기');},'btn sm').style.marginTop='6px';
-  b.appendChild(el('div','hint',(typeof MB!=='undefined'&&MB.touch?'유동화는 AI 없이 쓸 수 있어요. 확대해서 작게, 여러 번 나눠 밀면 자연스러워요. 두 손가락 탭 = 실행 취소, 세 손가락 탭 = 다시 실행':'유동화는 AI 없이 쓸 수 있어요. 브러시로 밀어서 턱선이나 머리 모양을 직접 다듬으세요. <kbd>[</kbd> <kbd>]</kbd> 크기')));}
+}
 /* ---- 편집 › 하늘 교체 · 조명 ---- */
 function buildSkyLight(b){
   const h=el('div','sub');h.innerHTML='하늘 교체 '+aiBadge();b.appendChild(h);
@@ -131,8 +132,8 @@ function buildSkyLight(b){
 /* ---- injections into existing panels ---- */
 function injectAI(){
   // mask panel
-  const mp=$('pMask').querySelector('.grid3');const box=el('div');mp.after(box);
-  const h=el('div','sub');h.innerHTML='AI 선택 '+aiBadge();box.appendChild(h);
+  const mp=$('maskNew');const box=el('div');mp.after(box);
+  const h=el('div','sub');h.innerHTML='AI로 만들기 '+aiBadge();box.appendChild(h);
   const mr=el('div','inline');mr.style.marginBottom='4px';box.appendChild(mr);
   selectCtl(mr,'적용','ui:aiMode',[['new','새 마스크로'],['add','선택 마스크에 더하기'],['sub','선택 마스크에서 빼기'],['int','선택 마스크와 교차']],{always:true,noCommit:true,noRender:true}).style.flex='1';
   const g=el('div','chips');box.appendChild(g);
@@ -147,17 +148,15 @@ function injectAI(){
   // retouch
   const rp=$('pRetouch').querySelector('.pad');const rh=$('retHint');const rbox=el('div');rh.after(rbox);
   const fg=group(rbox,()=>UI.ret.mode==='fill');chk(fg,'AI 고품질 채우기 (LaMa · 처음 한 번 약 200MB)','ui:ret.ai',{noCommit:true,always:true});
-  // layers: bg removal
-  const lp=$('pLayers').querySelector('.pad');const srcRow=[...lp.querySelectorAll('.frow')].find(r=>r.textContent.startsWith('소스'));
-  if(srcRow){const bb=el('button','btn full');bb.innerHTML='배경 제거 '+aiBadge();bb.style.margin='4px 0';bb.onclick=()=>cur&&removeLayerBg();srcRow.after(bb);}
   // left › 사진
   const left=$('left').querySelector('.sec .secb');const lb=el('div');left.appendChild(lb);const lh=el('div','sub');lh.innerHTML='AI 선별 '+aiBadge();lb.appendChild(lh);
   const lg=el('div','btnrow');lb.appendChild(lg);btn(lg,'흐림·눈 감은 사진 찾기',aiCull,'btn',{always:true});btn(lg,'문제 사진 거부 표시',rejectProblems,'btn',{always:true});btn(lg,'비슷한 사진에서 베스트 컷 픽',bestShots,'btn',{always:true});
   lb.appendChild(el('div','hint','선택한 사진(없으면 필터에 보이는 전체)을 검사해요.'));
-  const bh=el('div','sub');bh.innerHTML='AI 일괄 처리 '+aiBadge();lb.appendChild(bh);
-  [['portrait','인물 보정 (피부·눈·윤곽)'],['makeup','메이크업'],['bokeh','보케 · 포커스'],['sky','하늘 교체'],['light','입체 조명']].forEach(([k,n])=>chk(lb,n,'ui:batch.'+k,{noCommit:true,noRender:true,always:true}));
-  btn(lb,'현재 사진의 AI 보정을 다른 사진에 적용',batchAI,'btn full',{always:true});
-  lb.appendChild(el('div','hint',(MB.touch?'필름 스트립에서 사진을 길게 눌러':'필름 스트립에서 Ctrl/⌘+클릭으로')+' 고른 사진(없으면 필터에 보이는 전체)에, 사진마다 AI 분석을 새로 해서 같은 값을 적용해요.'));
+  const sy=$('secSync'),ab=el('div');sy.appendChild(ab);
+  const bh=el('div','sub');bh.innerHTML='AI 보정 다시 계산해서 적용 '+aiBadge();ab.appendChild(bh);
+  [['portrait','인물 보정 (피부·눈·윤곽)'],['makeup','메이크업'],['bokeh','보케 · 포커스'],['sky','하늘 교체'],['light','입체 조명']].forEach(([k,n])=>chk(ab,n,'ui:batch.'+k,{noCommit:true,noRender:true,always:true}));
+  btn(ab,'현재 사진의 AI 보정을 다른 사진에 적용',batchAI,'btn full',{always:true});
+  ab.appendChild(el('div','hint',(MB.touch?'필름 스트립에서 사진을 길게 눌러':'필름 스트립에서 Ctrl/⌘+클릭으로')+' 고른 사진(없으면 필터에 보이는 전체)에, 사진마다 AI 분석을 새로 해서 같은 값을 적용해요.'));
   if(pwaOK()){const pb=btn(lb,'AI 모델 모두 받기 (오프라인용)',packAll,'btn full',{always:true});pb.style.marginTop='8px';}
   // film search
   const film=$('film');const sw=el('div','fsearch');sw.innerHTML='<input class="txt" placeholder="AI 태그 검색 (예: 바다)" list="tagList"><datalist id="tagList"></datalist><button class="btn sm" title="AI로 사진 태그 만들기">태그 생성</button>';

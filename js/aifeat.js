@@ -181,7 +181,7 @@ async function removeLayerBg(){const L=selLayer();if(!L||L.type!=='image')return
     busy(false);return{data,w,h};});if(!r)return;
   const a=maskFromFloat(r.data,r.w,r.h,src.width,src.height);const out=document.createElement('canvas');out.width=src.width;out.height=src.height;const x=out.getContext('2d');x.drawImage(src,0,0);
   const im=x.getImageData(0,0,out.width,out.height);for(let i=0;i<a.length;i++)im.data[i*4+3]=Math.min(im.data[i*4+3],a[i]);x.putImageData(im,0,0);
-  const id='file:'+uid('f');STORE.images.set(id,out);imageNames.set(id,(imageNames.get(L.img)||L.name)+' (배경 제거)');L.img=id;R.layerTex.delete(L.id);if(RH)RH.layerTex.delete(L.id);
+  const id='file:'+uid('f');STORE.images.set(id,out);imageNames.set(id,(imageNames.get(L.img)||L.name)+' (배경 제거)');if(!L.imgOrig)L.imgOrig=L.img;L.img=id;R.layerTex.delete(L.id);if(RH)RH.layerTex.delete(L.id);
   syncUI();requestRender();commit('레이어 배경 제거');}
 /* ---- LaMa object removal ---- */
 async function lamaFill(src,strokes){if(!(await confirmBig('lama')))throw new Error('취소했어요');const sess=await getModel('lama');const ort=AI.ort;

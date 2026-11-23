@@ -50,45 +50,12 @@ function buildEdit(){const root=$('pEdit');
     BANDS.forEach((bd,i)=>slider(gb,{path:`bwMix.${i}`,label:bd.n,hl:'흑백 '+bd.n,min:-100,max:100,track:()=>G('#111',hueCss(bd.h,60,50),'#eee')}));
     btn(gb,'자동 흑백 혼합',()=>{P().bwMix=[-8,-4,6,-12,-8,-18,-6,4];syncUI();requestRender();commit('자동 흑백 혼합');},'btn sm').style.marginTop='6px';
   },true);
-  section(root,'포인트 컬러 / 색상 대체',b=>{
-    const t=el('div','inline');b.appendChild(t);const pk=btn(t,'＋ 사진에서 색 선택',()=>startPick('pc'),'btn sm');controls.push({sync(){pk.classList.toggle('on',UI.pick==='pc');}});
-    dyn(b,d=>{d.innerHTML='';const pcs=P().pcs;if(!pcs.length){d.innerHTML='<div class="hint">스포이드로 바꾸고 싶은 색을 찍으세요. 최대 4개까지 가능하고, ‘나머지 채도’를 -100으로 하면 고른 색만 남는 흑백(컬러 스플래시)이 돼요.</div>';return;}
-      const sw=el('div','swatches');d.appendChild(sw);
-      pcs.forEach((c,i)=>{const s=el('div','swatch'+((cur.selPC|0)===i?' on':''));s.style.background=hueCss(c.h*360,c.s*100,c.l*100);s.title='선택';s.onclick=()=>{cur.selPC=i;syncUI();};sw.appendChild(s);});});
-    const g=group(b,()=>!!selPC());
-    slider(g,{path:'pc:dh',label:'색조 이동',hl:'포인트 색조',min:-100,max:100,track:()=>{const c=selPC();const h=c?c.h*360:0;return G(hueCss(h-60),hueCss(h),hueCss(h+60));}});
-    slider(g,{path:'pc:ds',label:'채도',hl:'포인트 채도',min:-100,max:100});
-    slider(g,{path:'pc:dl',label:'광도',hl:'포인트 광도',min:-100,max:100});
-    slider(g,{path:'pc:range',label:'범위',hl:'포인트 범위',min:5,max:100,def:35,fmt:v=>Math.round(v)});
-    btn(g,'이 색 삭제',()=>{P().pcs.splice(cur.selPC|0,1);cur.selPC=0;syncUI();requestRender();commit('포인트 컬러 삭제');},'btn sm').style.margin='6px 0';
-    const g2=group(b,()=>P().pcs.length>0);
-    slider(g2,{path:'pcRest',label:'나머지 채도',min:-100,max:0,track:()=>G('#888','#e05050')});
-  },true);
   section(root,'색상 그레이딩',b=>{
     [['gs','어두운 영역'],['gm','중간 톤'],['gh','밝은 영역']].forEach(([k,n])=>{sub(b,n);
       slider(b,{path:k+'H',label:'색조',hl:n+' 색조',min:0,max:360,def:{gs:220,gm:30,gh:45}[k],fmt:v=>Math.round(v)+'°',track:TR.rain,onSet:()=>syncUI()});
       slider(b,{path:k+'S',label:'채도',hl:n+' 채도',min:0,max:100,fmt:v=>Math.round(v),track:()=>G('#8a8a8a',hueCss(getP(k+'H'),75,50))});
       slider(b,{path:k+'L',label:'광도',hl:n+' 광도',min:-100,max:100});});
     sub(b,'전체');slider(b,{path:'gBal',label:'균형',hl:'그레이딩 균형',min:-100,max:100});
-  },true);
-  section(root,'듀오톤',b=>{chk(b,'듀오톤 사용','duo.on',{hl:'듀오톤'});
-    colorCtl(b,'어두운 색','duo.a',{hl:'듀오톤 어두운 색'});colorCtl(b,'밝은 색','duo.b',{hl:'듀오톤 밝은 색'});
-    slider(b,{path:'duo.amt',label:'강도',hl:'듀오톤 강도',min:0,max:100,def:100,fmt:v=>Math.round(v)});
-    const pr=el('div','chips');pr.style.marginTop='6px';b.appendChild(pr);
-    [['#1d3557','#f4a261','블루·오렌지'],['#2b2d42','#ef233c','레드'],['#283618','#dda15e','올리브'],['#3a0ca3','#f72585','네온'],['#1b1b1b','#c9a227','골드']].forEach(([a,c,n])=>{
-      const x=el('button');x.textContent=n;x.onclick=()=>{if(!cur)return;Object.assign(P().duo,{on:true,a,b:c});syncUI();requestRender();commit('듀오톤 '+n);};pr.appendChild(x);});
-  },true);
-  section(root,'채널 혼합기',b=>{tabsCtl(b,'ui:mixOut',[['r','빨강 출력'],['g','녹색 출력'],['b','파랑 출력']]);
-    ['r','g','b'].forEach(o=>{const g=group(b,()=>UI.mixOut===o);[['빨강',0,'#e05050'],['녹색',1,'#4fd36a'],['파랑',2,'#5b8bff']].forEach(([n,i,c])=>
-      slider(g,{path:`mix.${o}.${i}`,label:n,hl:`채널 ${o.toUpperCase()}←${n}`,min:-200,max:200,def:o==='rgb'[i]?100:0,track:()=>G('#111',c)}));});
-    btn(b,'채널 혼합 초기화',()=>{P().mix={r:[100,0,0],g:[0,100,0],b:[0,0,100]};syncUI();requestRender();commit('채널 혼합 초기화');},'btn sm').style.marginTop='6px';
-  },true);
-  section(root,'LUT (.cube)',b=>{
-    const t=el('div','inline');b.appendChild(t);btn(t,'LUT 불러오기…',()=>pickFile('.cube',loadLutFile),'btn sm');
-    const rm=btn(t,'해제',()=>{P().lut.id=null;P().lut.name='';syncUI();requestRender();commit('LUT 해제');},'btn sm');
-    const nm=el('div','hint');b.appendChild(nm);
-    controls.push({sync(){const L=P().lut;const ok=L.id&&STORE.luts.has(L.id);nm.textContent=ok?'적용 중: '+L.name:(L.id?'LUT 데이터를 다시 불러와 주세요: '+L.name:'영화용 3D LUT(.cube) 파일을 불러와 적용해요.');rm.disabled=!L.id;}});
-    slider(b,{path:'lut.amt',label:'강도',hl:'LUT 강도',min:0,max:100,def:100,fmt:v=>Math.round(v)});
   },true);
   section(root,'세부',b=>{sub(b,'선명하게');
     slider(b,{path:'sharpen',label:'양',hl:'선명하게',min:0,max:150,fmt:v=>Math.round(v)});
@@ -99,15 +66,6 @@ function buildEdit(){const root=$('pEdit');
     sub(b,'노이즈 감소');
     slider(b,{path:'lnr',label:'광도',hl:'광도 노이즈 감소',min:0,max:100,fmt:v=>Math.round(v)});
     slider(b,{path:'cnr',label:'색상',hl:'색상 노이즈 감소',min:0,max:100,fmt:v=>Math.round(v)});
-  },true);
-  section(root,'렌즈 보정',b=>{sub(b,'왜곡');
-    slider(b,{path:'lens.dist',label:'왜곡',hl:'렌즈 왜곡',min:-100,max:100});
-    sub(b,'색수차');
-    slider(b,{path:'lens.ca',label:'색수차',hl:'색수차 보정',min:-100,max:100});
-    slider(b,{path:'lens.defringe',label:'프린지 제거',hl:'프린지 제거',min:0,max:100,fmt:v=>Math.round(v)});
-    sub(b,'렌즈 비네팅');
-    slider(b,{path:'lens.vig',label:'양',hl:'렌즈 비네팅',min:-100,max:100});
-    slider(b,{path:'lens.vigMid',label:'중간점',hl:'렌즈 비네팅 중간점',min:0,max:100,def:50,fmt:v=>Math.round(v)});
   },true);
   section(root,'효과',b=>{sub(b,'자르기 후 비네팅');
     slider(b,{path:'vig',label:'양',hl:'비네팅',min:-100,max:100,track:TR.dark});
@@ -123,6 +81,40 @@ function buildEdit(){const root=$('pEdit');
     buildBokeh(b);
   },true);
   section(root,'하늘 교체 · 입체 조명',b=>buildSkyLight(b),true);
+  let adv;section(root,'고급 색상',b=>{adv=b;b.classList.add('nest');},true);
+  section(adv,'포인트 컬러 / 색상 대체',b=>{
+    const t=el('div','inline');b.appendChild(t);const pk=btn(t,'＋ 사진에서 색 선택',()=>startPick('pc'),'btn sm');controls.push({sync(){pk.classList.toggle('on',UI.pick==='pc');}});
+    dyn(b,d=>{d.innerHTML='';const pcs=P().pcs;if(!pcs.length){d.innerHTML='<div class="hint">스포이드로 바꾸고 싶은 색을 찍으세요. 최대 4개까지 가능하고, ‘나머지 채도’를 -100으로 하면 고른 색만 남는 흑백(컬러 스플래시)이 돼요.</div>';return;}
+      const sw=el('div','swatches');d.appendChild(sw);
+      pcs.forEach((c,i)=>{const s=el('div','swatch'+((cur.selPC|0)===i?' on':''));s.style.background=hueCss(c.h*360,c.s*100,c.l*100);s.title='선택';s.onclick=()=>{cur.selPC=i;syncUI();};sw.appendChild(s);});});
+    const g=group(b,()=>!!selPC());
+    slider(g,{path:'pc:dh',label:'색조 이동',hl:'포인트 색조',min:-100,max:100,track:()=>{const c=selPC();const h=c?c.h*360:0;return G(hueCss(h-60),hueCss(h),hueCss(h+60));}});
+    slider(g,{path:'pc:ds',label:'채도',hl:'포인트 채도',min:-100,max:100});
+    slider(g,{path:'pc:dl',label:'광도',hl:'포인트 광도',min:-100,max:100});
+    slider(g,{path:'pc:range',label:'범위',hl:'포인트 범위',min:5,max:100,def:35,fmt:v=>Math.round(v)});
+    btn(g,'이 색 삭제',()=>{P().pcs.splice(cur.selPC|0,1);cur.selPC=0;syncUI();requestRender();commit('포인트 컬러 삭제');},'btn sm').style.margin='6px 0';
+    const g2=group(b,()=>P().pcs.length>0);
+    slider(g2,{path:'pcRest',label:'나머지 채도',min:-100,max:0,track:()=>G('#888','#e05050')});
+  },true);
+  section(adv,'듀오톤',b=>{chk(b,'듀오톤 사용','duo.on',{hl:'듀오톤'});
+    colorCtl(b,'어두운 색','duo.a',{hl:'듀오톤 어두운 색'});colorCtl(b,'밝은 색','duo.b',{hl:'듀오톤 밝은 색'});
+    slider(b,{path:'duo.amt',label:'강도',hl:'듀오톤 강도',min:0,max:100,def:100,fmt:v=>Math.round(v)});
+    const pr=el('div','chips');pr.style.marginTop='6px';b.appendChild(pr);
+    [['#1d3557','#f4a261','블루·오렌지'],['#2b2d42','#ef233c','레드'],['#283618','#dda15e','올리브'],['#3a0ca3','#f72585','네온'],['#1b1b1b','#c9a227','골드']].forEach(([a,c,n])=>{
+      const x=el('button');x.textContent=n;x.onclick=()=>{if(!cur)return;Object.assign(P().duo,{on:true,a,b:c});syncUI();requestRender();commit('듀오톤 '+n);};pr.appendChild(x);});
+  },true);
+  section(adv,'채널 혼합기',b=>{tabsCtl(b,'ui:mixOut',[['r','빨강 출력'],['g','녹색 출력'],['b','파랑 출력']]);
+    ['r','g','b'].forEach(o=>{const g=group(b,()=>UI.mixOut===o);[['빨강',0,'#e05050'],['녹색',1,'#4fd36a'],['파랑',2,'#5b8bff']].forEach(([n,i,c])=>
+      slider(g,{path:`mix.${o}.${i}`,label:n,hl:`채널 ${o.toUpperCase()}←${n}`,min:-200,max:200,def:o==='rgb'[i]?100:0,track:()=>G('#111',c)}));});
+    btn(b,'채널 혼합 초기화',()=>{P().mix={r:[100,0,0],g:[0,100,0],b:[0,0,100]};syncUI();requestRender();commit('채널 혼합 초기화');},'btn sm').style.marginTop='6px';
+  },true);
+  section(adv,'LUT (.cube)',b=>{
+    const t=el('div','inline');b.appendChild(t);btn(t,'LUT 불러오기…',()=>pickFile('.cube',loadLutFile),'btn sm');
+    const rm=btn(t,'해제',()=>{P().lut.id=null;P().lut.name='';syncUI();requestRender();commit('LUT 해제');},'btn sm');
+    const nm=el('div','hint');b.appendChild(nm);
+    controls.push({sync(){const L=P().lut;const ok=L.id&&STORE.luts.has(L.id);nm.textContent=ok?'적용 중: '+L.name:(L.id?'LUT 데이터를 다시 불러와 주세요: '+L.name:'영화용 3D LUT(.cube) 파일을 불러와 적용해요.');rm.disabled=!L.id;}});
+    slider(b,{path:'lut.amt',label:'강도',hl:'LUT 강도',min:0,max:100,def:100,fmt:v=>Math.round(v)});
+  },true);
 }
 /* ---- curve canvas ---- */
 const CH_COL={rgb:'#e8e8e8',r:'#ff5a5a',g:'#4fd36a',b:'#5b8bff'};let dragPt=null;
@@ -168,6 +160,13 @@ function buildCrop(){const b=el('div','pad');$('pCrop').appendChild(b);
   const gb=btn(gg,'가이드 업라이트',()=>{UI.guide=!UI.guide;UI.straighten=false;updateModeUI();},'btn',{title:'건물의 세로선·가로선을 따라 선을 2~4개 그으면 자동으로 원근을 맞춰요'});
   btn(gg,'가이드 지우기',()=>{UI.guideLines=[];drawOverlay();},'btn');
   controls.push({sync(){gb.classList.toggle('on',UI.guide);}});
+  sub(b,'렌즈 보정');slider(b,{path:'lens.dist',label:'왜곡',hl:'렌즈 왜곡',min:-100,max:100});
+    
+    slider(b,{path:'lens.ca',label:'색수차',hl:'색수차 보정',min:-100,max:100});
+    slider(b,{path:'lens.defringe',label:'프린지 제거',hl:'프린지 제거',min:0,max:100,fmt:v=>Math.round(v)});
+    
+    slider(b,{path:'lens.vig',label:'렌즈 비네팅',hl:'렌즈 비네팅',min:-100,max:100});
+    slider(b,{path:'lens.vigMid',label:'비네팅 중간점',hl:'렌즈 비네팅 중간점',min:0,max:100,def:50,fmt:v=>Math.round(v)});
   sub(b,'회전 · 반전');const g2=el('div','grid2');b.appendChild(g2);
   btn(g2,'↺ 왼쪽 90°',()=>rotate90(-1));btn(g2,'↻ 오른쪽 90°',()=>rotate90(1));
   const fh=btn(g2,'⇋ 좌우 반전',()=>flip('h'));const fv=btn(g2,'⇵ 상하 반전',()=>flip('v'));
@@ -178,16 +177,23 @@ function buildCrop(){const b=el('div','pad');$('pCrop').appendChild(b);
   b.appendChild(el('div','hint','핸들을 드래그해 자르고 안쪽을 드래그해 옮기세요. 각도·원근을 바꾸면 빈 모서리가 생기지 않게 자르기 영역이 자동으로 맞춰져요. <kbd>Enter</kbd> 완료'));}
 
 /* ================= MASK PANEL ================= */
-const MASK_N={linear:'선형',radial:'원형',brush:'브러시',ai:'AI'};
+const MASK_N={linear:'선형',radial:'원형',brush:'브러시',ai:'AI',outline:'테두리'};
 const ICON={linear:'<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18"/></svg>',
   radial:'<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="5"/></svg>',
   brush:'<svg class="ic" viewBox="0 0 24 24"><path d="M18 3l3 3-9 9-3-3z"/><path d="M9 12c-3 0-5 2-5 5"/></svg>',
+  outline:'<svg class="ic" viewBox="0 0 24 24"><path d="M7 5c4-3 12-2 13 3s-3 10-9 10-8-3-8-6 1-5 4-7z" stroke-dasharray="3 2.2"/><circle cx="12" cy="11" r="3"/></svg>',
   ai:'<svg class="ic" viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></svg>'};
 const MODE_N={add:'＋',sub:'－',int:'∩'};
 function buildMask(){const b=el('div','pad');$('pMask').appendChild(b);
   const ng=el('div','hint');ng.id='maskNoGL';ng.style.display='none';ng.textContent='이 기기에서는 마스크를 지원하지 않아요 (WebGL 부동소수점 렌더링 필요).';b.appendChild(ng);
-  sub(b,'새 마스크');const add=el('div','grid3');b.appendChild(add);
-  [['linear','선형'],['radial','원형'],['brush','브러시']].forEach(([t,n])=>{const x=btn(add,ICON[t].replace('class="ic"','')+n,()=>startNewMask(t,'new'));x._t=t;});
+  const nb=el('div','sec mnew');nb.innerHTML='<div class="sech"><i class="tri"></i><span>새 마스크</span><span class="badge2"></span></div><div class="secb"></div>';b.appendChild(nb);
+  const nbody=nb.lastChild;let lastSel=null;
+  nb.firstChild.onclick=()=>{UI.maskNewOpen=nb.classList.contains('closed');nb.classList.toggle('closed',!UI.maskNewOpen);};
+  controls.push({sync(){const sel=cur?cur.sel:null;if(sel!==lastSel){lastSel=sel;UI.maskNewOpen=undefined;}
+    const open=UI.pendingCreate||UI.pick==='aisubject'?true:UI.maskNewOpen!==undefined?UI.maskNewOpen:!selMask();nb.classList.toggle('closed',!open);}});
+  const dh=el('div','sub');dh.textContent='그려서 만들기';nbody.appendChild(dh);
+  const add=el('div','grid4');add.id='maskNew';nbody.appendChild(add);
+  [['linear','선형'],['radial','원형'],['brush','브러시'],['outline','테두리']].forEach(([t,n])=>{const x=btn(add,ICON[t].replace('class="ic"','')+n,()=>startNewMask(t,'new'));x._t=t;});
   controls.push({sync(){[...add.children].forEach(x=>x.classList.toggle('on',UI.pendingCreate===x._t&&UI.pendingMode==='new'));}});
   const hint=el('div','hint');hint.id='mHint';b.appendChild(hint);
   sub(b,'마스크');
@@ -196,17 +202,28 @@ function buildMask(){const b=el('div','pad');$('pMask').appendChild(b);
       r.querySelector('.nm').textContent=m.name;r.onclick=e=>{if(e.target.classList.contains('del')){cur.sel=m.id;deleteMask();return;}cur.sel=m.id;cur.selComp=m.comps[0]?.id;UI.pendingCreate=null;syncUI();requestRender();};l.appendChild(r);});});
   const me=group(b,()=>!!selMask());
   chk(me,'마스크 영역 빨간색으로 표시 (O)','ui:showOverlay',{noCommit:true});
+  sub(me,'보정');
+  [['exposure','노출',-4,4,.05,TR.exp],['contrast','대비',-100,100],['highlights','밝은 영역',-100,100],['shadows','어두운 영역',-100,100],
+   ['temp','색온도',-100,100,1,TR.temp],['tint','색조',-100,100,1,TR.tint],['clarity','부분 대비',-100,100],['saturation','채도',-100,100,1,TR.sat]]
+   .forEach(([k,n,mn,mx,st,tr])=>slider(me,{path:'m:adj.'+k,label:n,hl:'마스크 '+n,min:mn,max:mx,step:st||1,track:tr}));
+  const g4=el('div','grid2');g4.style.marginTop='10px';me.appendChild(g4);
+  btn(g4,'보정값 초기화',()=>{const m=selMask();ADJ_KEYS.forEach(k=>m.adj[k]=0);syncUI();requestRender();commit(m.name+' 보정 초기화');});
+  btn(g4,'마스크 삭제',deleteMask);
   sub(me,'구성 요소 (더하기 · 빼기 · 교차)');
   dyn(me,d=>{d.innerHTML='';const m=selMask();if(!m)return;const l=el('div','list');d.appendChild(l);
     m.comps.forEach((c,i)=>{const r=el('div','li'+(selComp()===c?' on':''));r.innerHTML=`${ICON[c.type]}<span class="nm">${c.type==='ai'&&typeof AI_MASKS!=='undefined'?'AI '+((AI_MASKS.find(a=>a[0]===c.kind)||[,''])[1]).replace(' (클릭)',''):MASK_N[c.type]}</span>${i?`<span class="tag">${MODE_N[c.mode]}</span>`:''}<button class="ib del" title="삭제">×</button>`;
       r.onclick=e=>{if(e.target.classList.contains('del')){m.comps.splice(m.comps.indexOf(c),1);if(!m.comps.length){deleteMask();return;}cur.selComp=m.comps[0].id;syncUI();requestRender();commit('구성 요소 삭제');return;}
         cur.selComp=c.id;syncUI();drawOverlay();};l.appendChild(r);});});
   const ar=el('div','inline');ar.style.margin='6px 0';me.appendChild(ar);
-  [['add','＋ 더하기'],['sub','－ 빼기'],['int','∩ 교차']].forEach(([md,n])=>{const s=el('select','txt');s.style.flex='1';s.innerHTML=`<option value="">${n}</option><option value="linear">선형</option><option value="radial">원형</option><option value="brush">브러시</option>`;
+  [['add','＋ 더하기'],['sub','－ 빼기'],['int','∩ 교차']].forEach(([md,n])=>{const s=el('select','txt');s.style.flex='1';s.innerHTML=`<option value="">${n}</option><option value="linear">선형</option><option value="radial">원형</option><option value="brush">브러시</option><option value="outline">테두리</option>`;
     s.onchange=()=>{if(s.value)startNewMask(s.value,md);s.value='';};ar.appendChild(s);});
   const cg=group(me,()=>!!selComp());
   chk(cg,'반전','mc:inv',{hl:'구성 요소 반전'});
   const fg=group(cg,()=>selComp()?.type==='radial');slider(fg,{path:'mc:feather',label:'페더',hl:'마스크 페더',min:0,max:100,def:50,fmt:v=>Math.round(v)});
+  const og=group(cg,()=>selComp()?.type==='outline');
+  slider(og,{path:'mc:snap',label:'경계 맞춤',hl:'테두리 경계 맞춤',min:0,max:100,def:70,noRender:true,fmt:v=>Math.round(v),onSet:v=>{UI.outline.snap=v;},onDone:()=>requestRender()});
+  chk(og,'AI로 물체 경계 찾기 '+(typeof aiBadge==='function'?aiBadge():''),'mc:ai',{hl:'테두리 AI',onSet:v=>{UI.outline.ai=v;const c=selComp();if(v&&c)outlineAI(c);}});
+  og.appendChild(el('div','hint','경계 맞춤 0이면 그린 그대로, 높일수록 그린 선에서 더 안쪽까지 경계를 찾아 붙어요. 더하기·빼기로 테두리를 여러 번 그려 다듬을 수 있어요.'));
   const bg=group(cg,()=>selComp()?.type==='brush');
   tabsCtl(bg,'ui:brush.erase',[[false,'칠하기'],[true,'지우개']],{onSet:updateModeUI});
   slider(bg,{path:'ui:brush.size',label:'크기',min:3,max:400,def:60,noCommit:true,noRender:true,fmt:v=>Math.round(v),always:true});
@@ -224,13 +241,6 @@ function buildMask(){const b=el('div','pad');$('pMask').appendChild(b);
   controls.push({sync(){rp.classList.toggle('on',UI.pick==='range');const m=selMask();if(m&&m.range.color){const [r,g,b2]=m.range.color.map(v=>Math.round(v*255));sw.style.background=`rgb(${r},${g},${b2})`;}}});
   slider(rc,{path:'m:range.tol',label:'허용 범위',hl:'색상 허용 범위',min:1,max:100,def:30,fmt:v=>Math.round(v)});
   slider(rc,{path:'m:range.sm',label:'부드럽게',hl:'범위 부드럽게',min:0,max:100,def:20,fmt:v=>Math.round(v)});
-  sub(me,'보정');
-  [['exposure','노출',-4,4,.05,TR.exp],['contrast','대비',-100,100],['highlights','밝은 영역',-100,100],['shadows','어두운 영역',-100,100],
-   ['temp','색온도',-100,100,1,TR.temp],['tint','색조',-100,100,1,TR.tint],['clarity','부분 대비',-100,100],['saturation','채도',-100,100,1,TR.sat]]
-   .forEach(([k,n,mn,mx,st,tr])=>slider(me,{path:'m:adj.'+k,label:n,hl:'마스크 '+n,min:mn,max:mx,step:st||1,track:tr}));
-  const g4=el('div','grid2');g4.style.marginTop='10px';me.appendChild(g4);
-  btn(g4,'보정값 초기화',()=>{const m=selMask();ADJ_KEYS.forEach(k=>m.adj[k]=0);syncUI();requestRender();commit(m.name+' 보정 초기화');});
-  btn(g4,'마스크 삭제',deleteMask);
   me.appendChild(el('div','hint','<kbd>Space</kbd>+드래그로 화면 이동 · <kbd>[</kbd> <kbd>]</kbd> 브러시 크기 · <kbd>Delete</kbd> 마스크 삭제'));}
 
 /* ================= RETOUCH PANEL ================= */
@@ -267,17 +277,32 @@ function buildLayers(){const b=el('div','pad');$('pLayers').appendChild(b);
   sub(b,'레이어 추가');const g=el('div','grid4');b.appendChild(g);
   btn(g,'🖼<br>이미지',()=>pickFile('image/*',f=>addImageLayer(f)));btn(g,'T<br>텍스트',()=>addLayer('text'));btn(g,'■<br>색상',()=>addLayer('color'));btn(g,'◐<br>조정',()=>addLayer('adjust'));
   sub(b,'레이어 (위가 앞)');
-  dyn(b,d=>{d.innerHTML='';const ls=cur?cur.params.layers:[];const l=el('div','list');d.appendChild(l);
-    ls.slice().reverse().forEach(L=>{const r=el('div','li'+(cur.selLayer===L.id?' on':'')+(L.visible?'':' hidden'));
-      r.innerHTML=`<button class="ib vis" title="보이기/숨기기">${L.visible?'◉':'○'}</button><span class="nm"></span><button class="ib up" title="위로">↑</button><button class="ib dn" title="아래로">↓</button><button class="ib del" title="삭제">×</button>`;
-      r.querySelector('.nm').textContent=L.name;
-      r.onclick=e=>{const c=e.target.classList;const arr=cur.params.layers,i=arr.indexOf(L);
-        if(c.contains('vis')){L.visible=!L.visible;syncUI();requestRender();commit(L.name+(L.visible?' 보이기':' 숨기기'));return;}
-        if(c.contains('up')){if(i<arr.length-1){arr.splice(i,1);arr.splice(i+1,0,L);syncUI();requestRender();commit('레이어 순서');}return;}
-        if(c.contains('dn')){if(i>0){arr.splice(i,1);arr.splice(i-1,0,L);syncUI();requestRender();commit('레이어 순서');}return;}
+  dyn(b,d=>{d.innerHTML='';if(!cur)return;const p=cur.params;const l=el('div','list');d.appendChild(l);
+    layerStack(p).slice().reverse().forEach(L=>{const isB=L==='BASE',vis=isB?!p.baseHidden:L.visible;
+      const r=el('div','li'+((isB?UI.baseSel:cur.selLayer===L.id)?' on':'')+(vis?'':' hidden')+(isB?' base':''));
+      r.innerHTML=`<button class="ib vis" title="보이기/숨기기">${vis?'◉':'○'}</button><span class="nm"></span><button class="ib up" title="위로">↑</button><button class="ib dn" title="아래로">↓</button>${isB?'':'<button class="ib del" title="삭제">×</button>'}`;
+      r.querySelector('.nm').textContent=isB?'배경 (보정된 사진)':L.name;const nm=isB?'배경':L.name;
+      r.onclick=e=>{const c=e.target.classList;
+        if(c.contains('vis')){if(isB)p.baseHidden=!p.baseHidden;else L.visible=!L.visible;syncUI();requestRender();commit(nm+(vis?' 숨기기':' 보이기'));return;}
+        if(c.contains('up')){if(moveInStack(L,1)){syncUI();requestRender();commit('레이어 순서');}return;}
+        if(c.contains('dn')){if(moveInStack(L,-1)){syncUI();requestRender();commit('레이어 순서');}return;}
         if(c.contains('del')){cur.selLayer=L.id;deleteLayer();return;}
-        cur.selLayer=L.id;syncUI();drawOverlay();};l.appendChild(r);});
-    const base=el('div','li');base.style.opacity='.6';base.style.cursor='default';base.innerHTML='<span class="nm">배경 (보정된 사진)</span>';l.appendChild(base);});
+        if(isB){UI.baseSel=true;cur.selLayer=null;}else{UI.baseSel=false;cur.selLayer=L.id;}UI.layerCut=false;UI.olDraft=null;syncUI();updateModeUI();drawOverlay();};
+      onDouble(r,e=>{if(e.target.closest('.ib'))return;if(isB)fitView();else{UI.baseSel=false;cur.selLayer=L.id;fitToSelected();}});l.appendChild(r);});
+    const fr=el('div','grid2');fr.style.margin='4px 0';d.appendChild(fr);btn(fr,'선택한 것에 맞춰 보기',fitToSelected,'btn sm',{title:'화면만 움직여서 선택한 레이어(없으면 배경)를 꽉 차게 보여요 (Shift+Z) · 목록 항목을 두 번 눌러도 돼요'});btn(fr,'전체 보기',fitView,'btn sm');
+    if(p.baseHidden||p.baseZ>0||p.baseCut){const h=el('div','hint','배경이 비는 곳은 체크무늬로 보여요. PNG·WebP로 저장하면 투명하게, JPEG는 흰색으로 저장돼요.');d.appendChild(h);}});
+  /* cut-out: the selected image layer, or the background photo itself */
+  const cutBox=group(b,()=>!!cur&&(UI.baseSel||selLayer()?.type==='image'));
+  const ch=el('div','sub');cutBox.appendChild(ch);controls.push({sync(){ch.textContent=UI.baseSel?'배경 사진 따내기':'이미지 따내기';}});
+  const row=el('div','grid2');row.style.margin='2px 0 4px';cutBox.appendChild(row);
+  const bb=el('button','btn');bb.innerHTML='배경 제거 '+(typeof aiBadge==='function'?aiBadge():'');bb.onclick=()=>{if(!cur)return;if(UI.baseSel)removeBaseBg();else removeLayerBg();};row.appendChild(bb);
+  const ob=el('button','btn');ob.textContent='테두리로 따기';ob.onclick=()=>{if(!cur)return;UI.layerCut=!UI.layerCut;UI.olDraft=null;syncUI();updateModeUI();drawOverlay();};row.appendChild(ob);
+  controls.push({sync(){ob.classList.toggle('on',!!UI.layerCut);}});
+  const kg=group(cutBox,()=>!!UI.layerCut);kg.appendChild(el('div','hint','남길 부분을 테두리로 둘러 그리세요. 그린 선 안쪽의 가까운 경계에 맞춰 따내요.'));
+  slider(kg,{path:'ui:outline.snap',label:'경계 맞춤',min:0,max:100,def:70,noCommit:true,noRender:true,fmt:v=>Math.round(v),always:true});
+  chk(kg,'AI로 물체 경계 찾기 '+(typeof aiBadge==='function'?aiBadge():''),'ui:outline.ai',{noCommit:true,always:true});
+  const rb=group(cutBox,()=>{if(UI.baseSel)return !!(cur&&P().baseCut);const L=selLayer();return !!(L&&L.imgOrig&&L.img!==L.imgOrig);});
+  btn(rb,'따내기 전 원래대로',()=>{if(UI.baseSel)baseRestore();else layerRestore();},'btn full');
   const lg=group(b,()=>!!selLayer());
   sub(lg,'속성');textCtl(lg,'이름','l:name',{hl:'레이어 이름',onSet:()=>dynHooks.forEach(f=>f())});
   selectCtl(lg,'혼합 모드','l:blend',BLENDS,{hl:'혼합 모드'});
@@ -289,10 +314,19 @@ function buildLayers(){const b=el('div','pad');$('pLayers').appendChild(b);
   const im=group(lg,()=>selLayer()?.type==='image');
   selectCtl(im,'소스','l:img',()=>imageSources(),{hl:'이미지 소스',onSet:v=>ensureImageSource(v)});
   const tr=group(lg,()=>{const t=selLayer()?.type;return t==='image'||t==='text';});
-  slider(tr,{path:'l:scale',label:'크기',hl:'레이어 크기',min:5,max:400,def:100,fmt:v=>Math.round(v)+'%'});
+  slider(tr,{path:'l:scale',label:'크기',hl:'레이어 크기',min:1,max:1000,def:100,fmt:v=>(v<10?(+v).toFixed(1):Math.round(v))+'%'});
   slider(tr,{path:'l:rot',label:'회전',hl:'레이어 회전',min:-180,max:180,fmt:v=>Math.round(v)+'°'});
   slider(tr,{path:'l:x',label:'가로 위치',min:-.5,max:1.5,step:.005,def:.5,fmt:v=>Math.round(v*100)});
   slider(tr,{path:'l:y',label:'세로 위치',min:-.5,max:1.5,step:.005,def:.5,fmt:v=>Math.round(v*100)});
+  sub(tr,'정렬');const al=el('div','grid2');tr.appendChild(al);
+  const ib=group(al,()=>selLayer()?.type==='image');ib.style.gridColumn='1 / -1';
+  btn(ib,'배경 사진과 똑같이 겹치기',()=>alignLayer('base'),'btn full',{title:'배경 사진과 같은 크기·위치·각도로 맞춰요. 같은 카메라로 찍은 사진을 겹칠 때 좋아요'});
+  btn(al,'화면 채우기',()=>alignLayer('fill'),'btn sm');btn(al,'전체 보이기',()=>alignLayer('fit'),'btn sm');btn(al,'가운데 정렬',()=>alignLayer('center'),'btn sm');
+  const sm=el('select','txt');sm.style.minWidth='0';al.appendChild(sm);sm.onchange=()=>{if(sm.value)alignLayer('same',sm.value);sm.value='';};
+  controls.push({sync(){const L=selLayer();const o=cur?cur.params.layers.filter(x=>x!==L&&(x.type==='image'||x.type==='text')):[];
+    sm.innerHTML='<option value="">다른 레이어와 같게…</option>'+o.map(x=>`<option value="${x.id}"></option>`).join('');[...sm.options].slice(1).forEach((op,i)=>op.textContent=o[i].name);sm.disabled=!o.length;}});
+  chk(tr,'겹침 확인 (차이로 보기)','ui:onion',{noCommit:true,always:true,hl:'겹침 확인'});
+  tr.appendChild(el('div','hint','겹침 확인을 켜면 선택한 레이어가 "차이"로 보여서, 정확히 겹친 곳이 검게 보여요. PC에서는 방향키로 1px씩(Shift는 10px) 옮길 수 있어요.'));
   const cg=group(lg,()=>selLayer()?.type==='color');colorCtl(cg,'색상','l:color',{hl:'채우기 색'});
   const ag=group(lg,()=>selLayer()?.type==='adjust');
   slider(ag,{path:'l:exp',label:'노출',hl:'조정 노출',min:-3,max:3,step:.05,track:TR.exp});
@@ -336,7 +370,7 @@ function buildLeft(){const root=$('left');
       s.forEach((sn,i)=>{const r=el('div','li');r.innerHTML='<span class="nm"></span><button class="ib del">×</button>';r.querySelector('.nm').textContent=sn.name;
         r.onclick=e=>{if(e.target.classList.contains('del')){s.splice(i,1);syncUI();return;}replaceParams(clone(sn.state));commit('스냅샷: '+sn.name);};l.appendChild(r);});});},true);
   section(root,'히스토리',b=>{const l=el('div','list');l.id='histList';b.appendChild(l);});
-  section(root,'설정 동기화',b=>{const g=el('div','btnrow');b.appendChild(g);
+  section(root,'여러 사진에 적용',b=>{b.id='secSync';sub(b,'보정 설정 복사');const g=el('div','btnrow');b.appendChild(g);
     btn(g,'보정 설정 복사',()=>{clipboard=clone(cur.params);PHOTO_ONLY.forEach(k=>delete clipboard[k]);syncUI();toast('보정 설정을 복사했어요 (자르기·리터칭·레이어 제외)');});
     const pb=btn(g,'붙여넣기',()=>{if(!clipboard)return;replaceParams(adaptParams(clipboard,cur));commit('설정 붙여넣기');});
     controls.push({sync(){pb.disabled=!clipboard;}});

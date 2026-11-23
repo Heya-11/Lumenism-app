@@ -17,12 +17,12 @@ function defaults(){return{temp:0,tint:0,exposure:0,contrast:0,highlights:0,shad
   privacy:{style:'mosaic',amt:50,expand:35,items:[]},
   sky:{on:false,aid:null,src:'clear',amt:100,fg:50,bright:0,shift:0,scale:100,flip:false,edge:50},light:{on:false,aid:null,amt:50,ang:-45,elev:35,warm:20,amb:20},
   curves:{rgb:ID(),r:ID(),g:ID(),b:ID()},pcurve:{sh:0,dk:0,lt:0,hl:0,s1:25,s2:50,s3:75},
-  geo:defGeo(),masks:[],retouch:[],layers:[]};}
-const clone=o=>JSON.parse(JSON.stringify(o));
+  geo:defGeo(),masks:[],retouch:[],layers:[],baseZ:0,baseHidden:false,baseCut:null};}
+const clone=o=>o===undefined?undefined:JSON.parse(JSON.stringify(o));
 const DEF_JSON=JSON.stringify(defaults());
 const BANDS=[{n:'빨강',h:0},{n:'주황',h:30},{n:'노랑',h:60},{n:'녹색',h:120},{n:'아쿠아',h:180},{n:'파랑',h:240},{n:'자주',h:270},{n:'마젠타',h:300}];
 const ADJ_KEYS=['exposure','contrast','highlights','shadows','temp','tint','clarity','saturation'];
-const PHOTO_ONLY=['geo','retouch','layers','liquify','privacy'];
+const PHOTO_ONLY=['geo','retouch','layers','liquify','privacy','baseZ','baseHidden','baseCut'];
 const PRESETS=[
   {n:'기본값 (색·톤 초기화)',p:{}},
   {n:'선명하게',p:{contrast:18,clarity:18,texture:10,dehaze:8,vibrance:35,saturation:5,sharpen:30}},
@@ -43,7 +43,7 @@ let R=null;const glc=document.getElementById('gl');
 const photos=[];let cur=null,uidN=0,clipboard=null,tool='edit';
 const UI={compare:'off',splitX:.5,clip:false,pick:null,tat:null,hslTab:'H',curveTab:'point',curveCh:'rgb',mixOut:'r',
   straighten:false,guide:false,guideLines:[],pendingCreate:null,pendingMode:'add',showOverlay:true,space:false,
-  brush:{size:60,feather:50,flow:60,erase:false,auto:false},
+  brush:{size:60,feather:50,flow:60,erase:false,auto:false},outline:{snap:70,ai:false},layerCut:false,olDraft:null,
   ret:{mode:'heal',size:40,feather:50,op:100,src:null,off:null,awaitSrc:false,ai:false},
   liq:{mode:'off',size:80,str:35},pe:{on:false,c:'lip',m:'add',size:30},face:-1,pv:false,sens:+(localStorage.getItem('lumen.sens')||1),aiMode:'new',recAI:false,cropSug:null,tagQuery:'',blemSens:50,aiOv:false,stacks:false,openStacks:new Set(),
   batch:{portrait:true,makeup:true,bokeh:true,sky:true,light:true},
@@ -79,7 +79,7 @@ const rnd4=v=>Math.round(v*1e4)/1e4;
 
 /* ================= render ================= */
 let rafPending=false,histTimer=null;
-function renderOpts(){const peOn=tool==='portrait'&&UI.pe.on;return{ovSel:peOn?PE_CH[UI.pe.c][2]:0,aiOv:(UI.aiOv&&tool!=='crop')||peOn,bypass:UI.compare==='before',split:(UI.compare==='split'&&tool!=='crop')?UI.splitX:-1,cropMode:tool==='crop',
+function renderOpts(){const peOn=tool==='portrait'&&UI.pe.on;return{onion:tool==='layers'&&UI.onion?cur&&cur.selLayer:null,ovSel:peOn?PE_CH[UI.pe.c][2]:0,aiOv:(UI.aiOv&&tool!=='crop')||peOn,bypass:UI.compare==='before',split:(UI.compare==='split'&&tool!=='crop')?UI.splitX:-1,cropMode:tool==='crop',
   sel:tool==='mask'?cur.sel:null,overlay:tool==='mask'&&UI.showOverlay,clip:UI.clip};}
 function requestRender(){if(!cur||rafPending)return;rafPending=true;requestAnimationFrame(()=>{rafPending=false;doRender();});}
 function doRender(){if(!cur)return;const pw=glc.width,ph=glc.height;
@@ -132,7 +132,7 @@ async function setFullPreview(v){UI.fullPreview=v;try{localStorage.setItem('dark
     const r=vw.getBoundingClientRect(),cx=r.width/2,cy=r.height/2,f=ow/nw;view.x=cx-(cx-view.x);view.y=cy-(cy-view.y);view.s*=f;applyView();updateHist();
     toast(v?`원본 해상도(${R.w}×${R.h})로 미리보기 중이에요`:'빠른 미리보기로 돌아왔어요');}
   catch(e){toast('전환 실패: '+e.message);}busy(false);}
-function fitView(){if(!cur)return;const r=vw.getBoundingClientRect(),pad=r.width<600?12:(tool==='crop'?48:32);
+function fitView(){if(!cur)return;const r=vw.getBoundingClientRect(),pad=UI.fsv?0:r.width<600?12:(tool==='crop'?48:32);
   const s=Math.min((r.width-pad*2)/glc.width,(r.height-pad*2)/glc.height);view={s,x:(r.width-glc.width*s)/2,y:(r.height-glc.height*s)/2,fit:true};applyView();}
 function zoomAt(mx,my,ns){const o=cur&&R?cur.w/R.w:1;ns=clamp(ns,.02,8*o);view.x=mx-(mx-view.x)*(ns/view.s);view.y=my-(my-view.y)*(ns/view.s);view.s=ns;view.fit=false;applyView();}
 function toggleZoom(mx,my){const r=vw.getBoundingClientRect();if(mx===undefined){mx=r.width/2;my=r.height/2;}if(view.fit)zoomAt(mx,my,cur&&R?cur.w/R.w:1);else fitView();}

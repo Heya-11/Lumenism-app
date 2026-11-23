@@ -1,6 +1,6 @@
 "use strict";
 /* ================= tool switching / mode hints ================= */
-function setTool(t){if(!cur)return;const prev=tool;tool=t;UI.straighten=false;UI.guide=false;UI.pendingCreate=null;UI.pick=null;UI.tat=null;UI.ret.awaitSrc=false;
+function setTool(t){if(!cur)return;const prev=tool;tool=t;UI.layerCut=false;UI.olDraft=null;UI.straighten=false;UI.guide=false;UI.pendingCreate=null;UI.pick=null;UI.tat=null;UI.ret.awaitSrc=false;
   $('tools').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
   ['edit','crop','mask','retouch','layers','portrait'].forEach(k=>$('p'+k[0].toUpperCase()+k.slice(1)).classList.toggle('on',k===t));
   vw.dataset.tool=t;
@@ -11,12 +11,13 @@ function setTool(t){if(!cur)return;const prev=tool;tool=t;UI.straighten=false;UI
 function modeHint(){if(UI.pick)return{addFace:'못 찾은 얼굴의 한가운데(코 근처)를 누르세요',wb:'회색이나 흰색이어야 할 곳을 클릭하세요',pc:'바꾸고 싶은 색을 클릭하세요',range:'마스크를 적용할 색을 클릭하세요',aisubject:'선택할 피사체를 클릭하세요',focusDepth:'초점을 맞출 곳을 클릭하세요',focusSubject:'초점을 맞출 피사체를 클릭하세요'}[UI.pick];
   if(UI.tat)return UI.tat==='hsl'?'바꾸고 싶은 색 위에서 위아래로 드래그하세요':'바꾸고 싶은 밝기 위에서 위아래로 드래그하세요';
   if(tool==='crop'){if(UI.straighten)return'수평선(또는 수직선)을 따라 드래그하세요';if(UI.guide)return`세로·가로 기준선을 따라 선을 그으세요 (${UI.guideLines.length}/4)`;return'';}
-  if(tool==='mask'){if(UI.pendingCreate&&UI.pendingCreate!=='brush')return UI.pendingCreate==='linear'?'드래그해서 그라디언트 방향과 길이를 정하세요':'중심에서 바깥쪽으로 드래그하세요';
+  if(tool==='mask'){if(UI.pendingCreate==='outline')return'잡고 싶은 대상을 테두리로 둘러 그리세요 — 안쪽 가까운 경계에 맞춰 잡아요';if(UI.pendingCreate&&UI.pendingCreate!=='brush')return UI.pendingCreate==='linear'?'드래그해서 그라디언트 방향과 길이를 정하세요':'중심에서 바깥쪽으로 드래그하세요';
     const c=selComp();if(c&&c.type==='brush')return(UI.brush.erase?'지우개':'브러시')+(UI.brush.auto?' (자동 마스크)':'')+(MB.touch?' — 한 손가락으로 칠하기 · 두 손가락으로 이동·확대 · 크기는 아래 브러시 슬라이더':' — 칠할 곳을 드래그 · [ ] 크기 · Space+드래그 이동');return'';}
   if(tool==='retouch'){const m=UI.ret.mode;if(m==='stamp')return UI.ret.awaitSrc||!UI.ret.src?'복제할 소스 지점을 클릭하세요 (Alt+클릭)':'칠해서 소스를 복제하세요 · Alt+클릭으로 소스 다시 지정';
     return{heal:'고칠 곳을 클릭하세요 — 주변과 어울리게 자동으로 메워요',clone:'고칠 곳을 클릭하세요 — 다른 곳을 그대로 복사해요',redeye:'눈 중심에서 바깥으로 드래그하세요',fill:'지울 대상을 브러시로 칠하면 주변 내용으로 채워요'}[m];}
   if(UI.pick==='aisubject')return'선택할 피사체를 클릭하세요';
   if(tool==='portrait')return UI.pv?(MB.touch?'얼굴 탭 = 가리기/해제 · 끌어서 그리기 = 영역 가리기 · 그린 영역 탭 = 지우기':'얼굴 클릭 = 가리기/해제 · 드래그 = 영역 가리기 · 그린 영역 클릭 = 지우기'):UI.pe.on?`칠해서 ${PE_CH[UI.pe.c][0]} 범위 ${UI.pe.m==='add'?'더하기':'지우기'} · 두 손가락으로 이동`:UI.liq.mode!=='off'?'드래그해서 유동화 · [ ] 크기 · Space+드래그 이동':'';
+  if(tool==='layers'&&UI.layerCut)return UI.baseSel?'배경 사진에서 남길 부분을 테두리로 둘러 그리세요':'레이어에서 남길 부분을 테두리로 둘러 그리세요';
   if(tool==='layers')return selLayer()&&(selLayer().type==='image'||selLayer().type==='text')?'레이어를 드래그해서 옮기세요':'';
   return'';}
 function updateModeUI(){vhint(modeHint());const m=$('mHint');if(m)m.textContent=tool==='mask'?modeHint():'';const rh=$('retHint');if(rh)rh.textContent=tool==='retouch'?modeHint():'';
@@ -125,8 +126,15 @@ function addComp(c,mode){if(mode==='new'){const n=cur.params.masks.length+1;cons
 function compHandles(c){const asp=R.last.w/R.last.h;
   if(c.type==='linear')return[{k:'a',uv:c.a},{k:'b',uv:c.b},{k:'mid',uv:[(c.a[0]+c.b[0])/2,(c.a[1]+c.b[1])/2]}];
   if(c.type==='radial')return[{k:'c',uv:c.c},{k:'rx',uv:[c.c[0]+c.rx/asp,c.c[1]]},{k:'ry',uv:[c.c[0],c.c[1]-c.ry]}];return[];}
-function compPin(c){if(c.type==='linear')return[(c.a[0]+c.b[0])/2,(c.a[1]+c.b[1])/2];if(c.type==='radial')return c.c;const s=c.strokes.find(s=>!s.e);return s?s.p[0]:null;}
+function compPin(c){if(c.type==='outline'&&c.pts&&c.pts.length){let x=0,y=0;c.pts.forEach(p=>{x+=p[0];y+=p[1];});return[x/c.pts.length,y/c.pts.length];}if(c.type==='linear')return[(c.a[0]+c.b[0])/2,(c.a[1]+c.b[1])/2];if(c.type==='radial')return c.c;const s=(c.strokes||[]).find(s=>!s.e);return s?s.p[0]:null;}
 function maskDown(mx,my){const uv=screenToSrc(mx,my),asp=R.last.w/R.last.h;
+  if(UI.pendingCreate==='outline'){const mode=UI.pendingMode;const pts=[uv.map(rnd4)];UI.olDraft=[[mx,my]];drawOverlay();
+    return{move(x,y){const l=UI.olDraft[UI.olDraft.length-1];if(Math.hypot(x-l[0],y-l[1])<3)return;UI.olDraft.push([x,y]);pts.push(screenToSrc(x,y).map(rnd4));drawOverlay();},
+      up(){UI.olDraft=null;const asp=R.last.w/R.last.h,p2=olThin(pts,.002);
+        if(p2.length<6||olArea(p2.map(p=>[p[0]*asp,p[1]]))<.0006){toast('선택할 대상을 테두리로 크게 둘러 그려 주세요');drawOverlay();return;}
+        UI.pendingCreate=null;const c={id:uid('c'),type:'outline',mode:mode==='new'?'add':mode,inv:false,feather:50,pts:p2,snap:UI.outline.snap,ai:UI.outline.ai,ph:cur.uid};
+        addComp(c,mode);const m=selMask();if(m&&mode==='new')m.name=m.name.replace(/^마스크/,'테두리');updateModeUI();requestRender();commit((mode==='new'?'마스크 추가: ':'구성 요소 추가: ')+'테두리');
+        if(c.ai)outlineAI(c);}};}
   if(UI.pendingCreate){const type=UI.pendingCreate,mode=UI.pendingMode;UI.pendingCreate=null;const c=newComp(type,mode==='new'?'add':mode);
     if(type==='linear'){c.a=uv.map(rnd4);c.b=[c.a[0],c.a[1]+.0001];}else{c.c=uv.map(rnd4);c.rx=c.ry=.001;}addComp(c,mode);
     return{move(x,y){const u=screenToSrc(x,y);if(type==='linear')c.b=u.map(rnd4);else{const d=Math.hypot((u[0]-c.c[0])*asp,u[1]-c.c[1]);c.rx=c.ry=rnd4(Math.max(.005,d));}requestRender();},
@@ -194,20 +202,30 @@ function newLayer(type){const n=cur.params.layers.filter(l=>l.type===type).lengt
   if(type==='text')Object.assign(L,{text:'텍스트를 입력하세요',font:'Noto Sans KR',size:6,color:'#ffffff',bold:true,shadow:true});
   if(type==='color')Object.assign(L,{color:'#ff8a3d',blend:'softlight',opacity:50});
   if(type==='adjust')Object.assign(L,{exp:0,con:0,sat:0,hue:0,invert:false});return L;}
-function addLayer(type,extra){const L=Object.assign(newLayer(type),extra||{});cur.params.layers.push(L);cur.selLayer=L.id;syncUI();requestRender();commit('레이어 추가: '+LAYER_N[type]);updateModeUI();}
+function addLayer(type,extra){UI.baseSel=false;UI.layerCut=false;const L=Object.assign(newLayer(type),extra||{});cur.params.layers.push(L);cur.selLayer=L.id;syncUI();requestRender();commit('레이어 추가: '+LAYER_N[type]);updateModeUI();}
 const imageNames=new Map();
-async function addImageLayer(file){try{const bm=await createImageBitmap(file,{imageOrientation:'from-image'});const c=drawScaled(bm,bm.width,bm.height,2048);bm.close&&bm.close();
-    const id='file:'+uid('f');STORE.images.set(id,c);imageNames.set(id,file.name);addLayer('image',{img:id,name:file.name.replace(/\.[^.]+$/,'')});}
+async function addImageLayer(file){try{const bm=await createImageBitmap(file,{imageOrientation:'from-image'});const c=drawScaled(bm,bm.width,bm.height,Math.min(4096,R.maxTex||4096));const rw=bm.width/(cur.w||bm.width);bm.close&&bm.close();
+    const id='file:'+uid('f');STORE.images.set(id,c);imageNames.set(id,file.name);addLayer('image',{img:id,rw:+rw.toFixed(5),name:file.name.replace(/\.[^.]+$/,'')});}
   catch(e){toast('이미지를 열지 못했어요');}}
 function imageSources(){const o=[];imageNames.forEach((n,id)=>o.push([id,'파일: '+n]));photos.forEach(p=>o.push(['photo:'+p.uid,'필름: '+p.name]));return o;}
-function ensureImageSource(id){if(id&&id.startsWith('photo:')&&!STORE.images.has(id)){const p=photos.find(x=>'photo:'+x.uid===id);if(p)STORE.images.set(id,p.prev);}if(R)R.layerTex.delete(selLayer()?.id);}
-function deleteLayer(){const L=selLayer();if(!L)return;const a=cur.params.layers;a.splice(a.indexOf(L),1);cur.selLayer=a.length?a[a.length-1].id:null;syncUI();requestRender();commit('레이어 삭제');}
+function ensureImageSource(id){let p=null;if(id&&id.startsWith('photo:')){p=photos.find(x=>'photo:'+x.uid===id);if(p&&!STORE.images.has(id))STORE.images.set(id,p.prev);}const L=selLayer();
+  if(L&&p&&cur)L.rw=+(p.w/cur.w).toFixed(5);if(L)delete L.imgOrig;if(R)R.layerTex.delete(L?.id);}
+function layerStack(p){const z=clamp(p.baseZ|0,0,p.layers.length);const s=p.layers.slice();s.splice(z,0,'BASE');return s;}
+function setLayerStack(p,s){p.baseZ=s.indexOf('BASE');p.layers=s.filter(x=>x!=='BASE');}
+function moveInStack(item,dir){const p=cur.params,s=layerStack(p),i=s.indexOf(item),j=i+dir;if(i<0||j<0||j>=s.length)return false;s.splice(i,1);s.splice(j,0,item);setLayerStack(p,s);return true;}
+function deleteLayer(){const L=selLayer();if(!L)return;const a=cur.params.layers;if(a.indexOf(L)<(cur.params.baseZ|0))cur.params.baseZ--;a.splice(a.indexOf(L),1);cur.selLayer=a.length?a[a.length-1].id:null;syncUI();requestRender();commit('레이어 삭제');}
 function dupLayer(){const L=selLayer();if(!L)return;const c=clone(L);c.id=uid('l');c.name=L.name+' 복사';c.x=Math.min(1,c.x+.03);c.y=Math.min(1,c.y+.03);
-  const a=cur.params.layers;a.splice(a.indexOf(L)+1,0,c);cur.selLayer=c.id;syncUI();requestRender();commit('레이어 복제');}
+  const a=cur.params.layers;if(a.indexOf(L)<(cur.params.baseZ|0))cur.params.baseZ++;a.splice(a.indexOf(L)+1,0,c);cur.selLayer=c.id;syncUI();requestRender();commit('레이어 복제');}
 function layerCorners(L){const lr=R.last;const rc=R.layerRect(L,lr.outW,lr.outH);if(!rc)return null;const cx=L.x*lr.outW,cy=L.y*lr.outH,t=L.rot*Math.PI/180,c=Math.cos(t),s=Math.sin(t);
   return[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>{const x=a*rc.w/2,y=b*rc.h/2;return outToScreen(cx+c*x-s*y,cy+s*x+c*y);});}
 function inPoly(p,poly){let ins=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [xi,yi]=poly[i],[xj,yj]=poly[j];if(((yi>p[1])!==(yj>p[1]))&&(p[0]<(xj-xi)*(p[1]-yi)/(yj-yi)+xi))ins=!ins;}return ins;}
 function layerDown(mx,my){const ls=cur.params.layers;let target=null;const sl=selLayer();
+  if(UI.layerCut&&UI.baseSel){UI.olDraft=[[mx,my]];drawOverlay();
+    return{move(x,y){const l=UI.olDraft[UI.olDraft.length-1];if(Math.hypot(x-l[0],y-l[1])<3)return;UI.olDraft.push([x,y]);drawOverlay();},
+      up(){const pts=UI.olDraft;UI.olDraft=null;drawOverlay();baseOutlineCut(pts);}};}
+  if(UI.layerCut&&sl&&sl.type==='image'){UI.olDraft=[[mx,my]];drawOverlay();
+    return{move(x,y){const l=UI.olDraft[UI.olDraft.length-1];if(Math.hypot(x-l[0],y-l[1])<3)return;UI.olDraft.push([x,y]);drawOverlay();},
+      up(){const pts=UI.olDraft;UI.olDraft=null;drawOverlay();layerOutlineCut(sl,pts);}};}
   if(sl&&sl.visible&&(sl.type==='image'||sl.type==='text')){const cs=layerCorners(sl);if(cs&&inPoly([mx,my],cs))target=sl;}
   if(!target)for(const L of ls.slice().reverse()){if(!L.visible||!(L.type==='image'||L.type==='text'))continue;const cs=layerCorners(L);if(cs&&inPoly([mx,my],cs)){target=L;break;}}
   if(!target)return null;if(cur.selLayer!==target.id){cur.selLayer=target.id;syncUI();}const L=target,x0=L.x,y0=L.y,lr=R.last;
@@ -232,6 +250,7 @@ function drawOverlay(){if(!cur||!R||!R.last){ov.innerHTML='';return;}let s='';co
       if(c.type==='radial'){const f=1-c.feather/100,pts=[],pin=[];for(let i=0;i<=72;i++){const t=i/72*Math.PI*2;pts.push(srcToScreen([c.c[0]+Math.cos(t)*c.rx/asp,c.c[1]+Math.sin(t)*c.ry]).join(','));
           pin.push(srcToScreen([c.c[0]+Math.cos(t)*c.rx*f/asp,c.c[1]+Math.sin(t)*c.ry*f]).join(','));}
         s+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${st}" stroke-width="1.3"/>`;if(sel)s+=`<polyline points="${pin.join(' ')}" fill="none" stroke="rgba(255,255,255,.5)" stroke-dasharray="4 4"/>`;}});
+    if(m)m.comps.forEach(c=>{if(c.type==='outline'&&c===selComp()&&c.pts)s+=`<polygon points="${c.pts.map(p=>srcToScreen(p).join(',')).join(' ')}" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.3" stroke-dasharray="5 4"/>`;});
     const c=selComp();if(c)compHandles(c).forEach(h=>{const [x,y]=srcToScreen(h.uv);const big=h.k==='mid'||h.k==='c';s+=`<circle cx="${x}" cy="${y}" r="${big?6:5}" fill="${big?'#5aa2ff':'#fff'}" stroke="#000" stroke-width="1.2"/>`;});
     cur.params.masks.forEach(o=>{if(o===m||!o.comps[0])return;const pin=compPin(o.comps[0]);if(!pin)return;const [x,y]=srcToScreen(pin);s+=`<circle cx="${x}" cy="${y}" r="6" fill="#222" stroke="#fff" stroke-width="1.5"/>`;});
     if(c&&c.type==='brush'&&hoverPos&&!UI.space&&!UI.pendingCreate){const r=UI.brush.size,ri=r*(1-UI.brush.feather/100);
@@ -252,6 +271,7 @@ function drawOverlay(){if(!cur||!R||!R.last){ov.innerHTML='';return;}let s='';co
   if(UI.compare==='split'&&tool!=='crop'){const x=view.x+UI.splitX*glc.width*view.s,y0=Math.max(0,view.y),y1=Math.min(H,view.y+glc.height*view.s);
     s+=`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y1}" stroke="#fff" stroke-width="1.5"/><circle cx="${x}" cy="${(y0+y1)/2}" r="9" fill="#fff"/><path d="M${x-4} ${(y0+y1)/2}l-3 0M${x+4} ${(y0+y1)/2}l3 0" stroke="#000"/>`;
     s+=`<text x="${x-10}" y="${y0+20}" text-anchor="end">보정 전</text><text x="${x+10}" y="${y0+20}">보정 후</text>`;}
+  if(UI.olDraft&&UI.olDraft.length>1){const pp=UI.olDraft.map(p=>p.join(',')).join(' ');s+=`<polyline points="${pp}" fill="none" stroke="#000" stroke-width="3.5" stroke-linejoin="round" opacity=".55"/><polyline points="${pp}" fill="none" stroke="#ffd34d" stroke-width="1.8" stroke-linejoin="round"/><line x1="${UI.olDraft[UI.olDraft.length-1].join('" y1="')}" x2="${UI.olDraft[0][0]}" y2="${UI.olDraft[0][1]}" stroke="#ffd34d" stroke-width="1.2" stroke-dasharray="4 4"/>`;}
   ov.innerHTML=s;}
 
 /* ================= pointer routing ================= */

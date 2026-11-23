@@ -24,7 +24,7 @@ function setSheet(s,quiet){MB.sheet=s;const b=document.body;
 function setLib(on){MB.lib=on;document.body.classList.toggle('m-lib',on);}
 function toggleFilm(){const on=!document.body.classList.contains('m-film');if(MB.mode==='tab')MB.filmTab=on;else MB.film=on;document.body.classList.toggle('m-film',on);$('bFilm').classList.toggle('on',on);setSheet(MB.sheet);}
 
-function initMobile(){
+function initMobile(){buildLooks();
   /* bottom nav (phone) + grip + drawer scrim + extra top buttons */
   const nav=el('nav','mnav');nav.id='mnav';document.querySelector('.app').appendChild(nav);
   const grip=el('div','mgrip');grip.id='mgrip';grip.innerHTML='<i></i>';$('right').prepend(grip);
@@ -108,3 +108,19 @@ async function shareFiles(files){const fl=files.map(f=>new File([f.blob],f.name,
 const SENS=[[.45,'세밀하게'],[1,'보통'],[1.7,'빠르게']];
 function setSens(v){UI.sens=v;try{localStorage.setItem('lumen.sens',v);}catch(e){}document.querySelectorAll('.senschips button').forEach(b=>b.classList.toggle('on',+b.dataset.v===v));}
 function sensChips(parent){const d=el('div','chips senschips');SENS.forEach(([v,n])=>{const b=el('button','',n);b.dataset.v=v;b.classList.toggle('on',v===UI.sens);b.onclick=()=>setSens(v);d.appendChild(b);});parent.appendChild(d);return d;}
+
+/* ---- phone/tablet: quick looks strip at the top of 편집 (hidden on PC by CSS) ---- */
+const LOOKS={key:'',job:0,el:null};
+function lookParams(pr){const np=Object.assign(defaults(),clone(pr.p));if(pr.p.fx)np.fx=Object.assign(defaults().fx,clone(pr.p.fx));np.geo=clone(cur.params.geo);return np;}
+function buildLooks(){const box=el('div','mlooks');box.id='mLooks';const ed=$('pEdit');ed.insertBefore(box,ed.firstChild);LOOKS.el=box;
+  dynHooks.push(refreshLooks);}
+function refreshLooks(){const box=LOOKS.el;if(!box||!document.body.classList.contains('m')||!cur||tool!=='edit')return;
+  const ups=loadUserPresets(),list=[{n:'✨ 추천',rec:true},...PRESETS.map(p=>({n:p.n.replace(' (색·톤 초기화)',''),pr:p})),...ups.map(p=>({n:p.n,pr:p}))];
+  const key=cur.uid+'|'+cur.params.geo.angle+JSON.stringify(cur.params.geo.crop)+'|'+ups.length;if(key===LOOKS.key)return;LOOKS.key=key;const job=++LOOKS.job;box.innerHTML='';
+  const cards=list.map(it=>{const b=el('button','mlook');b.innerHTML='<div class="ph"></div><span></span>';b.lastChild.textContent=it.n;
+    b.onclick=()=>{if(!cur)return;if(it.rec){recApply(0);toast('추천 보정을 적용했어요 · 다른 추천안과 강도는 ☰ › 프리셋에서');}else applyPreset(it.pr);
+      box.querySelectorAll('.mlook').forEach(x=>x.classList.toggle('on',x===b));};box.appendChild(b);return b;});
+  const ph=cur;let i=0;const step=()=>{if(job!==LOOKS.job||cur!==ph)return;if(i>=list.length)return;const it=list[i],cd=cards[i];i++;
+    try{let p;if(it.rec){const c=recCompute();p=Object.assign(defaults(),clone(c.list[0].p));p.geo=clone(cur.params.geo);}else p=lookParams(it.pr);
+      cd.firstChild.style.backgroundImage=`url(${recThumb(p)})`;}catch(e){console.warn(e);}
+    setTimeout(step,30);};setTimeout(step,120);}
